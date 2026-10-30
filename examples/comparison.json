@@ -4,6 +4,6 @@
   "tempo": 90,
   "groups": [
     { "id": "major", "title": "大四级", "description": "D → G → D · 明亮、舒展地回到主和弦。", "chords": ["D", "G", "D"] },
-    { "id": "minor", "title": "小四级", "description": "D → Gm → D · 只把 B 降为 B♭，听听色彩如何改变。", "chords": ["D", "Gm", "D"] }
+    { "id": "minor", "title": "小四级", "description": "D → Gm → D · 和弦中的 B 变为 B♭。这里采用不同吉他按法，音区与重复音也会变化。", "chords": ["D", "Gm", "D"] }
   ]
 }

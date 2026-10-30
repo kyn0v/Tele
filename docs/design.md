@@ -79,7 +79,9 @@ We accept one running local service in exchange for stable URLs and conflict-saf
 
 The main agent accepted this design before implementation. The implementation uses `src/schema.ts` for shared Zod schemas and `src/config.ts` for module-relative data paths. `src/boards.ts` owns synchronous persistence and exclusive data-directory locking. These are compatible module splits, not architecture changes.
 
-PUT requires a quoted numeric `If-Match` header. Every accepted PUT increments the revision, including identical content. `/` redirects to the seeded `demo` board with both comparisons. The production synthesis is also emitted as standalone `/assets/audio.js`. Exact limits and lifecycle behavior are recorded in [the API reference](reference.md). No substantive deviations were required.
+PUT requires a quoted numeric `If-Match` header. Every accepted PUT increments the revision, including identical content. `/` redirects to the seeded `demo` board with both comparisons. The production synthesis is also emitted as standalone `/assets/audio.js`.
+
+`Playback` includes a `finished` promise resolved by oscillator end events. Browser completion follows that promise rather than a wall timer, retaining cancellation handles while the audio clock is suspended. Stop disconnects output immediately, so an update during suspension cannot leave a stale tail on resume. This is a compatible extension of the synthesis contract. Cross-site GET document navigation is allowed only for root and valid board URLs, so agent-chat links work without opening API or subresource access. Exact limits and lifecycle behavior are recorded in [the API reference](reference.md).
 
 ## Verification
 

@@ -59,8 +59,13 @@ async function play(sequence: { symbol: ChordSymbol; button: HTMLButtonElement }
       playbacks.push(scheduleChord(audio, notesFor(item.symbol), at));
       timers.push(setTimeout(() => activate(item.button), Math.max(0, (at - audio.currentTime) * 1000)));
     }
-    const last = playbacks.at(-1);
-    if (last) timers.push(setTimeout(() => { activate(); playbacks = []; timers = []; stopControl.disabled = true; }, (last.endsAt - audio.currentTime) * 1000));
+    void Promise.all(playbacks.map(playback => playback.finished)).then(() => {
+      if (currentGeneration !== generation) return;
+      activate(); playbacks = [];
+      for (const timer of timers) clearTimeout(timer);
+      timers = []; stopControl.disabled = true;
+      feedback.textContent = '播放已结束。点击和弦或整组可以再听。';
+    });
     feedback.textContent = sequence.length === 1 ? `正在听 ${sequence[0]?.symbol} · 合成拨弦` : `正在按 ${tempo} BPM 播放，每个和弦两拍。`;
   } catch {
     stopPlayback();

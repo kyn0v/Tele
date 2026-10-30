@@ -117,6 +117,27 @@ test('invalid, oversized, unauthenticated and cross-origin updates leave committ
   assert.equal((await fetch(server.url, { redirect: 'manual' })).headers.get('location'), '/b/demo');
 });
 
+test('cross-site exception permits only GET document navigation and retains Origin and capability checks', async t => {
+  const { server, put } = await fixture(t);
+  const headers = { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document' };
+  const status = (path: string, overrides: Record<string, string> = {}, method = 'GET') => new Promise<number | undefined>((resolve, reject) => {
+    const req = request(`${server.url}${path}`, { method, headers: { ...headers, ...overrides } }, response => {
+      response.resume(); response.on('end', () => resolve(response.statusCode));
+    });
+    req.on('error', reject); req.end();
+  });
+  assert.equal(await status('/'), 302);
+  for (const path of ['/api/catalogue', '/api/boards/demo', '/api/boards/demo/events', '/favicon.svg', '/assets/web.js', '/b/Invalid', '/b/demo/extra']) {
+    assert.equal(await status(path), 403, path);
+  }
+  for (const overrides of [
+    { 'Sec-Fetch-Mode': 'cors' }, { 'Sec-Fetch-Dest': 'iframe' }, { 'Sec-Fetch-Dest': 'empty' }, { Origin: 'https://chat.example' }, { Host: 'evil.example' },
+  ]) assert.equal(await status('/b/demo', overrides), 403);
+  assert.equal(await status('/', {}, 'POST'), 403);
+  assert.equal((await put('cross-site', 0, content, headers)).status, 403);
+  assert.equal((await put('no-token', 0, content, { Authorization: '' })).status, 401);
+});
+
 test('SSE sends initial and committed full snapshots, isolates boards and closes on shutdown', { timeout: 5000 }, async t => {
   const { server, put } = await fixture(t);
   await put('harmony', 0);

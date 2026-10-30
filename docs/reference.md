@@ -90,7 +90,7 @@ The browser applies only a newer revision. It stops all current and scheduled pl
 | 503 | Server is stopping. |
 | 507 | Board capacity or revision limit reached. |
 
-There is no permissive CORS response. Host is restricted to `127.0.0.1:<port>` or `localhost:<port>`. An Origin, when present, must equal `http://<Host>`. Null Origins are rejected. Browser writes are not part of this POC.
+There is no permissive CORS response. Host is restricted to `127.0.0.1:<port>` or `localhost:<port>`. An Origin, when present, must equal `http://<Host>`. Null Origins are rejected. Cross-site requests are rejected except GET document navigations to `/` or a valid `/b/:id` URL. API requests, subresources, and iframe navigations receive no exception. Host, Origin, and write-capability checks still apply. Browser writes are not part of this POC.
 
 ## Persistence and ownership
 
@@ -110,11 +110,11 @@ Each PUT checks revision, writes a same-directory temporary file, fsyncs and clo
 
 This promises normal process-restart persistence and atomic replacement on a local filesystem. It does not promise power-loss durability, filesystem-failure recovery, network-filesystem semantics or protection from other local OS processes editing files. An interrupted write can leave a `.tmp` file, which startup ignores. Successful board state is never loaded from a temporary file.
 
-SIGINT and SIGTERM end SSE streams and stop the HTTP server before releasing the data lock. Remaining HTTP connections are force-closed after one second during shutdown. Abrupt termination leaves the lock. The browser has no capability token, and only the three named build assets and board HTML routes are exposed. The POC trusts local OS processes and is not safe for public deployment.
+SIGINT and SIGTERM end SSE streams and stop the HTTP server before releasing the data lock. Remaining HTTP connections are force-closed after one second during shutdown. Abrupt termination leaves the lock. The browser has no capability token. Static serving exposes only `/assets/web.js`, `/assets/audio.js`, `/assets/style.css`, `/favicon.svg`, and board HTML routes. The POC trusts local OS processes and is not safe for public deployment.
 
 ## Browser audio and build modules
 
-`src/audio.ts` exports `scheduleChord(context: BaseAudioContext, notes: readonly number[], at: number)`. It returns start and end times and a cancellable `stop` function. Both `AudioContext` and `OfflineAudioContext` are supported. Additive sine partials with decaying envelopes and a short string-by-string offset approximate a pluck. This is original synthesis, not sampled guitar audio.
+`src/audio.ts` exports `scheduleChord(context: BaseAudioContext, notes: readonly number[], at: number)`. It returns start and end times, a `finished` promise resolved by oscillator end events, and a cancellable `stop` function. The browser retains cancellation handles until all voices finish on the audio clock. Stop disconnects output immediately and cancels oscillators at the current audio time, including while suspended, so resuming cannot play an obsolete tail. Both `AudioContext` and `OfflineAudioContext` are supported. Additive sine partials with decaying envelopes and a short string-by-string offset approximate a pluck. This is original synthesis, not sampled guitar audio.
 
 `npm run build` emits a standalone ESM module at `dist/public/assets/audio.js`, served as `/assets/audio.js`. Browser automation can import that module directly. There is no test-only global API. `web.js` contains its own bundled copy of the same source implementation.
 

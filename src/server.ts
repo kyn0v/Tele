@@ -78,9 +78,14 @@ export async function startServer(options: { dataDir: string; port?: number; pub
     const allowedHosts = [`127.0.0.1:${port}`, `localhost:${port}`];
     if (!host || !allowedHosts.includes(host)) throw new HttpError(403, 'Host must be the local service address');
     if (request.headers.origin && request.headers.origin !== `http://${host}`) throw new HttpError(403, 'Foreign Origin rejected');
-    if (request.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'Cross-site request rejected');
     const url = new URL(request.url ?? '/', `http://${host}`);
     const method = request.method;
+    const boardPage = /^\/b\/[a-z0-9][a-z0-9-]{0,47}$/.test(url.pathname);
+    const documentNavigation = method === 'GET'
+      && request.headers['sec-fetch-mode'] === 'navigate'
+      && request.headers['sec-fetch-dest'] === 'document'
+      && (url.pathname === '/' || boardPage);
+    if (request.headers['sec-fetch-site'] === 'cross-site' && !documentNavigation) throw new HttpError(403, 'Cross-site request rejected');
     if (method === 'GET' && url.pathname === '/') {
       response.writeHead(302, { Location: `/b/${demoId}`, 'Cache-Control': 'no-store' }); response.end(); return;
     }
@@ -127,6 +132,7 @@ export async function startServer(options: { dataDir: string; port?: number; pub
     }
     if (method === 'GET') {
       const assets: Record<string, { file: string; mime: string }> = {
+        '/favicon.svg': { file: 'favicon.svg', mime: 'image/svg+xml' },
         '/assets/web.js': { file: 'assets/web.js', mime: 'text/javascript' },
         '/assets/audio.js': { file: 'assets/audio.js', mime: 'text/javascript' },
         '/assets/style.css': { file: 'assets/style.css', mime: 'text/css' },
@@ -136,7 +142,7 @@ export async function startServer(options: { dataDir: string; port?: number; pub
         response.writeHead(200, { 'Content-Type': `${asset.mime}; charset=utf-8`, 'Cache-Control': 'no-cache' });
         response.end(readFileSync(join(publicDir, asset.file))); return;
       }
-      if (/^\/b\/[a-z0-9][a-z0-9-]{0,47}$/.test(url.pathname)) {
+      if (boardPage) {
         response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         response.end(readFileSync(join(publicDir, 'index.html'))); return;
       }
