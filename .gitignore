@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.data/
+.audit/
+.playwright-mcp/
+.claude/worktrees/
+*.log
+.env
+.DS_Store
+todo.md
