@@ -1,6 +1,5 @@
 export type Playback = { startsAt: number; endsAt: number; stop: () => void };
 
-/** Original additive plucked-string approximation, not a sampled guitar. */
 export function scheduleChord(context: BaseAudioContext, notes: readonly number[], at: number): Playback {
   const startsAt = Math.max(context.currentTime, at);
   const duration = 2.6;
