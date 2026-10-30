@@ -1,0 +1,8 @@
+{
+  "title": "听见 ii → V → I",
+  "description": "在 D 大调中，Em → A → D 带来清楚的终止感。这是教学示例，不是歌曲转录。",
+  "tempo": 90,
+  "groups": [
+    { "id": "cadence", "title": "回到 D 大调", "description": "Em → A → D · 从准备、张力，到落点。", "chords": ["Em", "A", "D"] }
+  ]
+}

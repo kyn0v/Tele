@@ -1,0 +1,8 @@
+{
+  "title": "同一个 D，不同的回家路",
+  "description": "先听 D → G → D 的明亮感。这是和声教学示例，不是任何歌曲的已核实原版。",
+  "tempo": 90,
+  "groups": [
+    { "id": "major", "title": "大四级", "description": "D → G → D · 明亮、舒展地回到主和弦。", "chords": ["D", "G", "D"] }
+  ]
+}

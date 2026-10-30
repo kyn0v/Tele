@@ -77,12 +77,14 @@ We accept one running local service in exchange for stable URLs and conflict-saf
 
 ## Implementation reconciliation
 
-The main agent accepted this design before implementation. Naming and local module splits may change without changing the contract. Record substantive deviations here before handing the artifact to another owner.
+The main agent accepted this design before implementation. The implementation uses `src/schema.ts` for shared Zod schemas and `src/config.ts` for module-relative data paths. `src/boards.ts` owns synchronous persistence and exclusive data-directory locking. These are compatible module splits, not architecture changes.
+
+PUT requires a quoted numeric `If-Match` header. Every accepted PUT increments the revision, including identical content. `/` redirects to the seeded `demo` board with both comparisons. The production synthesis is also emitted as standalone `/assets/audio.js`. Exact limits and lifecycle behavior are recorded in [the API reference](reference.md). No substantive deviations were required.
 
 ## Verification
 
 Build and test music fixtures and real HTTP behavior, including conflicts, invalid payloads, oversized input, state isolation and restart. Drive browser creation/click/live update through real commands. Test production synthesis via OfflineAudioContext for finite nonzero samples, without claiming subjective speaker audition. Inspect keyboard interaction, desktop/mobile layouts, connection loss, screenshots and console errors.
 
-## Next implementation step
+## Implementation status
 
-Implement the catalogue and real HTTP put/get/conflict round trip, then browser diagrams and shared audio, then the agent CLI and full verification.
+The catalogue, conflict-safe HTTP service, browser diagrams, shared synthesis and agent CLI are implemented. The repository includes real HTTP tests and a reproducible production-browser verification script. Independent implementation review remains the parent agent's delivery gate.

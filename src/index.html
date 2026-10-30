@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3eb">
+  <title>AudioHarness · 和弦听觉白板</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script type="module" src="/assets/web.js"></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <a class="wordmark" href="/">AudioHarness <span>和弦听觉白板</span></a>
+      <span id="connection" class="connection" role="status" data-state="connecting">正在连接</span>
+    </header>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">把和声讲解，变成可以听见的对照。</p>
+      <h1 id="title">正在打开你的和弦白板</h1>
+      <p id="description" class="description">请稍候，正在读取白板。</p>
+      <div class="toolbar">
+        <p class="instruction">点击和弦听声音，或按顺序播放整组。</p>
+        <button id="stop" class="stop" type="button" disabled>■ 停止播放</button>
+      </div>
+      <div class="metadata"><span id="tempo"></span><span>标准调弦 · 无变调夹</span><span>合成拨弦，非吉他录音</span></div>
+      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+    </section>
+    <div id="groups" class="groups"></div>
+    <footer><span>听见差异，再回到音乐里。</span><span>指板从左至右为低 E → 高 E · × 不弹 · ○ 空弦</span></footer>
+  </main>
+</body>
+</html>

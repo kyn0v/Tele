@@ -1,0 +1,9 @@
+{
+  "title": "同一个 D，不同的回家路",
+  "description": "先听大四级的明亮，再听小四级的微妙转折。这是和声教学示例，不是任何歌曲的已核实原版。",
+  "tempo": 90,
+  "groups": [
+    { "id": "major", "title": "大四级", "description": "D → G → D · 明亮、舒展地回到主和弦。", "chords": ["D", "G", "D"] },
+    { "id": "minor", "title": "小四级", "description": "D → Gm → D · 只把 B 降为 B♭，听听色彩如何改变。", "chords": ["D", "Gm", "D"] }
+  ]
+}
