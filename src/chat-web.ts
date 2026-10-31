@@ -7,7 +7,7 @@ function node<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, 
   const element = document.createElement(tag); element.className = className; element.textContent = text; return element;
 }
 function stored(key: string) { try { return localStorage.getItem(key); } catch { return null; } }
-function save(key: string, value: string) { try { localStorage.setItem(key, value); } catch { /* Storage is optional in private browsing. */ } }
+function save(key: string, value: string) { try { localStorage.setItem(key, value); } catch { } }
 
 export function mountChat(boardId: BoardId) {
   const panel = node('aside', 'chat-panel'); panel.setAttribute('aria-label', 'Pi 对话');
