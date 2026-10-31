@@ -1,7 +1,19 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 export default function probe(pi: ExtensionAPI) {
-  pi.on('input', event => { if (event.source === 'extension') return { action: 'handled' }; });
+  let release: (() => void) | undefined;
+  let providerRequests = 0;
+  pi.on('before_provider_request', (_event, ctx) => { providerRequests++; ctx.abort(); });
+  pi.on('input', async (event, ctx) => {
+    if (event.source !== 'extension') return;
+    if (event.text !== 'Delayed browser input') return { action: 'handled' };
+    await new Promise<void>(resolve => { release = resolve; ctx.ui.notify('Probe input suspended', 'info'); });
+    return { action: 'continue' };
+  });
+  pi.registerCommand('probe-release', {
+    description: 'Release only the suspended disposable probe input',
+    handler: async () => { release?.(); release = undefined; },
+  });
   pi.registerCommand('probe-seed', {
     description: 'Seed only this disposable no-model probe',
     handler: async (_args, ctx) => {
@@ -18,6 +30,6 @@ export default function probe(pi: ExtensionAPI) {
   });
   pi.registerCommand('probe-tools', {
     description: 'Observe tool declarations without a model',
-    handler: async (_args, ctx) => { ctx.ui.notify(JSON.stringify({ probeTools: pi.getActiveTools() }), 'info'); },
+    handler: async (_args, ctx) => { ctx.ui.notify(JSON.stringify({ probeTools: pi.getActiveTools(), providerRequests }), 'info'); },
   });
 }

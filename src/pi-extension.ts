@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { resolve } from 'node:path';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { Type } from 'typebox';
@@ -8,6 +9,13 @@ import { catalogueEntries } from './music.js';
 import { PiChat } from './pi-chat.js';
 import { BoardIdSchema, ContentSchema, RevisionSchema, demoContent, type Content } from './schema.js';
 import { startServer } from './server.js';
+
+type BrowserDispatch = { revoked: boolean };
+declare global {
+  var __audioharnessDispatchV1: AsyncLocalStorage<BrowserDispatch> | undefined;
+}
+// A reload must still recognize a browser input suspended inside another extension's hook.
+const dispatchScope = globalThis.__audioharnessDispatchV1 ??= new AsyncLocalStorage<BrowserDispatch>();
 
 export const BOARD_TOOL = 'audioharness_board';
 const parameters = Type.Object({
@@ -24,7 +32,7 @@ const ReadSchema = z.strictObject({
 export const BoardCommandSchema = z.union([PutSchema, ReadSchema]);
 
 export default function audioharness(pi: ExtensionAPI) {
-  let owned: { chat: PiChat; service: Awaited<ReturnType<typeof startServer>>; tools: string[] } | undefined;
+  let owned: { chat: PiChat; service: Awaited<ReturnType<typeof startServer>>; tools: string[]; dispatch: BrowserDispatch } | undefined;
   let changing = false;
   let generation = 0;
   let detaching = false;
@@ -36,6 +44,7 @@ export default function audioharness(pi: ExtensionAPI) {
     const current = owned;
     if (!current) return;
     detaching = true;
+    current.dispatch.revoked = true;
     current.chat.close();
     await current.service.stop();
     if (wait) await wait();
@@ -61,10 +70,15 @@ export default function audioharness(pi: ExtensionAPI) {
     },
   });
   pi.on('session_start', () => { pi.setActiveTools(pi.getActiveTools().filter(name => name !== BOARD_TOOL)); });
+  pi.on('input', event => {
+    if (event.source === 'extension' && dispatchScope.getStore()?.revoked) return { action: 'handled' };
+  });
   pi.on('tool_call', event => {
+    if (dispatchScope.getStore()?.revoked) return { block: true, reason: 'This browser submission was detached before it could finish.' };
     if ((owned && (detaching || event.toolName !== BOARD_TOOL)) || (!owned && event.toolName === BOARD_TOOL)) return { block: true, reason: 'AudioHarness music mode allows only its attached board tool. Use /audioharness off in Pi to restore the previous tools.' };
   });
-  pi.on('before_agent_start', event => {
+  pi.on('before_agent_start', (event, ctx) => {
+    if (dispatchScope.getStore()?.revoked) { ctx.abort(); return; }
     if (!owned || detaching) return;
     pi.setActiveTools([BOARD_TOOL]);
     event.systemPromptOptions.selectedTools = [BOARD_TOOL];
@@ -102,14 +116,17 @@ export default function audioharness(pi: ExtensionAPI) {
         const port = z.coerce.number().int().min(0).max(65535).parse(pi.getFlag('audioharness-port') ?? config.port);
         const dataFlag = pi.getFlag('audioharness-data');
         const dataDir = typeof dataFlag === 'string' ? resolve(dataFlag) : config.dataDir;
-        const chat = new PiChat(parsed.data, ctx, pi);
+        const dispatch: BrowserDispatch = { revoked: false };
+        const chat = new PiChat(parsed.data, ctx, {
+          sendUserMessage: (content, options) => dispatchScope.run(dispatch, () => pi.sendUserMessage(content, options)),
+        });
         const service = await startServer({ dataDir, port, chat });
         if (currentGeneration !== generation || !ctx.isIdle() || ctx.hasPendingMessages()) {
           chat.close(); await service.stop();
           ctx.ui.notify('Pi 状态已变化，本次没有连接。请在空闲时重试。', 'warning'); return;
         }
         const tools = pi.getActiveTools().filter(name => name !== BOARD_TOOL);
-        owned = { chat, service, tools };
+        owned = { chat, service, tools, dispatch };
         if (!service.getBoard(parsed.data)) service.putBoard(parsed.data, RevisionSchema.parse(0), demoContent);
         pi.setActiveTools([BOARD_TOOL]);
         if (!pi.getActiveTools().includes(BOARD_TOOL)) throw new Error('Tool allowlist excludes audioharness_board');
