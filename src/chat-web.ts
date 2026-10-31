@@ -130,11 +130,11 @@ export function mountChat(boardId: BoardId) {
     if (send.disabled || !view || !binding) return;
     const command = { kind: 'send', id: crypto.randomUUID(), epoch: view.epoch, idleVersion: view.idleVersion, text: input.value };
     pending = { id: command.id, text: command.text }; awaitingReceipt = true; buttons();
-    void fetch(`/api/chat/${binding}/command`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command) }).then(async response => {
+    void fetch(`/api/chat/${binding}/command`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command), signal: AbortSignal.timeout(15_000) }).then(async response => {
       if (!response.ok) { pending = undefined; feedback.textContent = '未提交。Pi 状态可能已变化；请读取最新状态后再发送。'; await connect(); return; }
       ReceiptSchema.parse(await response.json());
       if (pending?.id === command.id) feedback.textContent = '已提交，不代表模型已经完成。草稿会在观察到消息后清除。';
-    }).catch(() => { feedback.textContent = '网络错误，发送结果不确定。不会重发；请检查对话或终端后再决定。'; }).finally(() => { awaitingReceipt = false; buttons(); });
+    }).catch(() => { if (pending?.id === command.id) feedback.textContent = '网络错误，发送结果不确定。不会重发；请检查对话或终端后再决定。'; }).finally(() => { awaitingReceipt = false; buttons(); });
   });
   input.addEventListener('input', buttons);
   input.addEventListener('keydown', event => {
@@ -144,7 +144,7 @@ export function mountChat(boardId: BoardId) {
     if (!binding || !view?.runId || abort.disabled) return;
     const command = { kind: 'abort', id: crypto.randomUUID(), epoch: view.epoch, runId: view.runId };
     abort.disabled = true;
-    void fetch(`/api/chat/${binding}/command`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command) }).then(async response => {
+    void fetch(`/api/chat/${binding}/command`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command), signal: AbortSignal.timeout(15_000) }).then(async response => {
       feedback.textContent = response.ok ? '已请求停止，等待 Pi 结束。' : '该轮回复已变化，未取消新的运行。';
       await connect();
     }).catch(() => { feedback.textContent = '停止请求结果不确定。请检查 Pi；不会自动重试。'; });
@@ -158,7 +158,7 @@ export function mountChat(boardId: BoardId) {
       const input = PairSchema.safeParse({ binding: id, invitation: secret });
       if (!input.success) { status.textContent = '配对链接无效。请从 Pi 获取新链接。'; return; }
       try {
-        const response = await fetch('/api/chat/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input.data) });
+        const response = await fetch('/api/chat/pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input.data), signal: AbortSignal.timeout(15_000) });
         if (!response.ok) throw new Error('Pair failed');
         binding = input.data.binding; save(bindingKey, binding);
       } catch { status.textContent = '配对失败，链接可能已使用或过期。请在 Pi 中重新连接。'; return; }
