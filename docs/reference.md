@@ -1,5 +1,15 @@
 # Tele board POC reference
 
+[English README](../README.md) | [简体中文 README](../README.zh-CN.md) | [中文对话参考](chat-reference.md)
+
+## Browser language
+
+The browser header offers English and Simplified Chinese independently of chat docking or collapse. `tele.locale` stores `en` or `zh-CN`. Without a valid stored choice, the primary navigator language selects `zh-CN` when it starts with `zh`, otherwise `en`. Failed storage access leaves selection available on the current page. The selector updates HTML language, document title, generated labels, status, and accessibility text without sending commands, replacing the composer, mutating board snapshots, or starting or stopping audio.
+
+User and assistant text, session names, board titles and descriptions, and chord symbols are not localized. New empty instances use English demo content. Startup still creates a demo only when it is missing; existing boards and histories are not migrated. Chinese example files remain Chinese content in either locale.
+
+The chat projection uses role-discriminated user/assistant text, structured tool name/status, and notice codes. `ChatView.notice` is a lifecycle code or `null`. There is no text-matching translation or legacy prose compatibility. [Conversation design](chat-design.md#english-and-simplified-chinese) explains the change, and [the Chinese conversation reference](chat-reference.md) lists exact codes and bounds.
+
 ## Content document
 
 A PUT body is a complete content document. Unknown fields are rejected at every object level. Text is trimmed. Array order is presentation and playback order.

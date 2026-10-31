@@ -33,10 +33,10 @@ export type Content = z.infer<typeof ContentSchema>;
 export type Board = z.infer<typeof BoardSchema>;
 
 export const demoContent = ContentSchema.parse({
-  title: '同一个 D，不同的回家路',
-  description: '先听大四级的明亮，再听小四级的微妙转折。这是和声教学示例，不是任何歌曲的已核实原版。',
+  title: 'The same D, a different way home',
+  description: 'Compare the bright major IV with the subtle minor iv. This is a harmony teaching example, not a verified transcription of any song.',
   groups: [
-    { id: 'major', title: '大四级', description: 'D → G → D · 明亮、舒展地回到主和弦。', chords: ['D', 'G', 'D'] },
-    { id: 'minor', title: '小四级', description: 'D → Gm → D · 和弦中的 B 变为 B♭。这里采用不同吉他按法，音区与重复音也会变化。', chords: ['D', 'Gm', 'D'] },
+    { id: 'major', title: 'Major IV', description: 'D → G → D · A bright return to the tonic.', chords: ['D', 'G', 'D'] },
+    { id: 'minor', title: 'Minor iv', description: 'D → Gm → D · B becomes B♭. These guitar shapes also change register and doubled notes.', chords: ['D', 'Gm', 'D'] },
   ],
 });

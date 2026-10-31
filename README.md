@@ -2,63 +2,69 @@
 
 A Harness for Musical Interaction.
 
-为大模型提供可视、可听、可交互的音乐组件与操作接口。
+Tele gives language models visual, audible, interactive music components and tools. The current proof of concept combines a guitar chord board with a conversation panel owned by the same live Pi session. Your agent updates the board, and you click chords to hear the result. Music theory explanations are one class of use cases, not the product's whole scope.
 
-当前 POC 提供吉他和弦白板与同一 Pi 会话中的对话面板。Agent 可以创建并更新白板，你可以点击和弦听声音。乐理讲解是其中一类用例，不是 Tele 的全部范围。
+English | [简体中文](README.zh-CN.md)
 
-## 在白板旁继续当前 Pi 对话
+## Continue your current Pi conversation beside a board
 
-需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。先在 shell 中安装依赖并构建浏览器资源，不要同时启动独立服务：
+Requires Node.js 22.19 or newer, npm, and Pi 1.2. Install dependencies and build browser assets in a shell. Do not start the standalone service at the same time.
 
 ```sh
 npm ci
 npm run build
 ```
 
-如果当前 Pi 已在本项目运行，先等当前工作和子任务结束，再在 **Pi 输入框**中执行以下命令。这不是 shell 命令。项目扩展需要你信任该项目。
+If Pi is already running in this project, wait for its current work and subtasks to finish. Trust the project extension, then enter these commands in the **Pi input box**, not in a shell.
 
 ```text
 /reload
 /tele harmony
 ```
 
-项目的 `.pi/extensions/tele.js` 通过 Pi 的 TypeScript 加载器导入 `src/pi-extension.ts`。安装依赖后即可加载扩展，不依赖 `dist`；打开白板仍需先构建浏览器资源。连接命令打开一次性私有链接，两分钟内完成配对。页面显示当前 Pi 分支的旧对话；你可以发送后续问题、看流式回复，并让 agent 更新眼前的同一块白板。
+Pi discovers `.pi/extensions/tele.js`, which imports `src/pi-extension.ts` through Pi's TypeScript loader. The extension can load after dependency installation without `dist`. Opening a board still requires built browser assets. `/tele harmony` starts an owned loopback service and provides a one-time private link. Open it within two minutes to pair. The page shows prior messages on the current Pi branch and lets you continue that conversation, watch streaming replies, and update the same board.
 
-如果从别的目录启动一个新的 Pi，可显式加载源码入口。不要同时通过项目发现和 `-e` 重复加载，也不要让第二个 Pi 打开仍被使用的会话文件。
+To launch a new Pi from another directory, explicitly load the source entrypoint.
 
 ```sh
 pi -e /absolute/path/Tele/.pi/extensions/tele.js
 ```
 
-构建后也支持 `pi -e /absolute/path/Tele/dist/pi-extension.js`。
+After building, `pi -e /absolute/path/Tele/dist/pi-extension.js` is also supported. Choose one entrypoint. Do not load the extension through both project discovery and `-e`. If Pi uses a `--tools` allowlist, include `tele_board`.
 
-如果该 Pi 使用 `--tools` 白名单，必须包含 `tele_board`。这会启动新的 Pi；它不是附着到另一个已经运行的 CLI。要继续原来的活跃会话，请使用原 Pi 中的项目扩展与 `/reload` 路径。
+Launching `pi` creates a new process. It does not attach to another live CLI. Do not open a session file that another Pi still owns. To continue an existing live session, use `/reload` and `/tele` in that original Pi.
 
-连接期间临时只开放白板工具，状态栏和面板都会标明。其他扩展的确认框仍需回终端处理，浏览器不会替你批准。在 Pi 中执行 `/tele off` 可撤销连接、停止扩展拥有的服务，并在运行结束后恢复原工具；Pi 本身不会退出。
+While attached, music mode temporarily allows only `tele_board` for model tool calls. Other extensions' confirmation dialogs still require the terminal. The browser cannot approve them. Run `/tele off` in Pi to revoke the connection, stop the extension-owned service, wait for settlement, and restore the previous tools. Pi stays running. Committed board edits are not rolled back.
 
-面板默认在右侧，可以切到左侧或底部，也可以收起。位置、折叠状态会保存，草稿只留在当前页面。Enter 发送，Shift+Enter 换行。手机使用底部面板，不改写桌面偏好。
+If a standalone server already owns the port or data directory, its owner must stop it before attaching Pi. Tele never kills another service. Ordinary board URLs do not grant access to private history or conversation controls. Do not share pairing links.
 
-若 `npm start` 的独立服务已经占用同一端口或数据目录，由该服务的所有者先停止它，再连接 Pi。扩展不会杀死其他服务。普通白板 URL 不授予私有历史或对话控制权；不要分享一次性配对链接。
+## Choose a browser language and layout
 
-精确的接口、容量和安全限制见 [Pi 对话参考](docs/chat-reference.md)。
+Use **Language** in the board header to select **English** or **简体中文**. The selector is outside the conversation panel and remains available when that panel is collapsed or on a phone.
 
-## 只启动白板并听一组和弦
+Without a saved choice, a primary browser language beginning with `zh` selects Simplified Chinese. All other languages select English. `tele.locale` stores your choice. Invalid saved values fall back to the browser rule. If storage is blocked, language selection still works for the current page.
 
-不需要 Pi 时可以继续使用原来的独立服务。对话面板会显示未连接说明。
+Language changes update generated controls, status messages, and accessibility labels. They do not translate user or assistant messages, session names, board titles or descriptions, or chord symbols. Existing boards and Pi histories are never rewritten. New empty instances use an English teaching demo. Existing Chinese example files remain Chinese content in either UI language.
+
+The conversation panel docks right by default. Choose left or bottom, or collapse it. Docking and collapse preferences persist. Phones use a bottom panel without overwriting the desktop preference. Language changes and layout changes preserve the composer node and draft. Enter sends, Shift+Enter inserts a newline, and IME composition does not submit. Drafts stay only on the current page and are lost on refresh.
+
+## Run a standalone listening board
+
+Pi is optional for board playback and CLI updates. In a shell, run:
 
 ```sh
-npm install
+npm ci
 npm run build
 npm start
 ```
 
-打开 <http://127.0.0.1:4317>。首页自动进入教学白板，包含「大四级」D → G → D 和「小四级」D → Gm → D。这是和声教学示例，不是任何歌曲的已核实原版。
+Open <http://127.0.0.1:4317>. The home page opens a demo comparing major IV, D → G → D, with minor iv, D → Gm → D. It is a harmony teaching example, not a verified transcription of a song. The conversation panel explains that Pi is not connected.
 
-点击和弦卡片听合成拨弦，或点击「播放整组」。每个和弦占两拍，速度由白板的 BPM 决定。「停止播放」取消当前和未来的音符。浏览器需要一次用户点击才能启动音频。
+Click a chord card or **Play group**. Each chord lasts two beats at the board's BPM. **Stop playback** cancels current and future notes. The browser starts audio only after a user gesture. A board update stops obsolete playback and never autoplays new content. Changing language preserves active playback and its Stop control.
 
-## 让 agent 创建并更新白板
+## Create and update a board with your agent
 
-保持服务运行。在另一个终端或 agent 的命令工具中执行：
+Keep the standalone service running. In another terminal or an agent's command tool, run:
 
 ```sh
 npm run board -- put harmony --expect 0 --file examples/major.json --open
@@ -67,67 +73,92 @@ npm run board -- put harmony --expect 1 --file examples/comparison.json
 npm run board -- catalogue
 ```
 
-首次 `put` 创建白板，返回含 `id`、`revision`、`content`、`url` 的 JSON。`--open` 调用系统浏览器，也可以直接打开返回的 URL。更新后的 URL 仍是 `/b/harmony`。原页面通过 SSE 接收更新，无需刷新。更新会停止旧播放，绝不自动播放新内容。
+The first `put` creates the board and returns JSON containing `id`, `revision`, `content`, and `url`. `--open` invokes the system browser. The URL stays `/b/harmony` after updates. The existing page receives full replacements through SSE without a refresh.
 
-`npm` 会额外输出脚本名称。要让工具只接收命令的 JSON 输出，使用 `npm run --silent board -- ...`。
+Every write requires the current revision. Before updating, read the board, keep any groups you want to preserve, and replace the complete content. On a 409 conflict, read again and reconcile rather than blindly overwrite. Use `npm run --silent board -- ...` when your agent needs only JSON output, without npm's script banner.
 
-对 agent 的实际指令可以是：
+An instruction you can give your agent:
 
-> 运行 `npm run --silent board -- catalogue` 查看可用和弦。用 `examples/major.json` 的结构创建一个有标题、有序分组和和弦的 JSON 文件，再运行 `npm run --silent board -- put my-board --expect 0 --file /absolute/path/content.json --open`。后续修改前先 `get my-board`，保留需要的旧分组，用读取到的 revision 完整替换同一块白板。遇到 409 先重新读取，不要盲目覆盖。
+> Run `npm run --silent board -- catalogue` to inspect available chords. Follow the structure in `examples/major.json` to create a JSON file with a title, ordered groups, and chords. Run `npm run --silent board -- put my-board --expect 0 --file /absolute/path/content.json --open`. Before each later update, `get my-board`, retain the groups we want, and replace the same board using the returned revision. On 409, read again instead of overwriting.
 
-另一个可运行的例子：
+Another runnable example:
 
 ```sh
 npm run board -- put cadence --expect 0 --file examples/cadence.json --open
 ```
 
-命令行写入需要本机数据目录里的 capability 文件。浏览器不持有这个 token。不要把它贴入对话或提交到版本库。运行停止服务的终端按 Ctrl+C，可释放数据目录锁。
+CLI writes use the capability file in the local data directory. The browser does not hold that token. Never paste it into a conversation or commit it. Press Ctrl+C in the service's terminal to stop it and release its data lock.
 
-## 用不同端口或数据目录运行
+## Use a different port or data directory
 
-服务和 CLI 使用相同的环境变量。默认数据目录是本项目的 `.data`，不取决于当前工作目录。自定义目录建议使用绝对路径。
+The service and CLI use the same environment variables. The default data directory is `.data` beside the project, independent of your shell's working directory. Use an absolute path for a custom directory.
 
 ```sh
 TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm start
 TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm run board -- get demo
 ```
 
-同一数据目录只允许一个服务，即使端口不同。崩溃后保留的 `server.lock` 会使启动失败。先查看其中的 `owner.json` 并确认旧进程已退出，再手动移除该锁目录。服务不自动猜测锁是否过期。
+Only one service can own a data directory, even on different ports. A crash can leave `server.lock`, which prevents startup. Inspect its `owner.json` and confirm the old process has exited before manually removing that lock directory. Tele does not guess whether a lock is stale.
 
-## 验证改动
+The Pi extension also accepts `--tele-port` and `--tele-data`. Port `0` asks the system for a free port. The standalone CLI's `TELE_PORT` requires a nonzero port.
+
+## Privacy and proof-of-concept limits
+
+Tele binds only to `127.0.0.1`. Board reads are public to callers that can access that local service. Board writes require a local capability. Private chat reads and commands require a paired browser cookie, scoped to one binding, with `HttpOnly`, `SameSite=Strict`, and an eight-hour expiry. Pairing links expire after two minutes and can be used once. Detach, reload, and session or branch replacement revoke the binding. Local HTTP has no TLS, and its cookie is not `Secure`. Do not expose the service to the internet.
+
+Pairing allows that browser to read the selected branch's user and assistant text. Tele excludes thinking, system prompts, tool arguments and raw results, compaction summaries, and extension-private messages. Secrets written in ordinary user or assistant text cannot be reliably filtered. The projection shows at most 100 items and about 256 KiB, with user and assistant text limited to 32,768 UTF-16 code units per item. Attachments are not displayed. The original Pi record remains the only transcript database.
+
+A submission receipt does not prove model acceptance or completion. Unobserved or uncertain submissions retain the draft and are never automatically resent. Reconnecting reads status without replaying commands. Stop requests target the current run and do not undo committed board changes or resolve terminal dialogs.
+
+Music mode is not an operating-system sandbox. Trusted extensions still run with Pi's user permissions. Tele restricts model tool calls, not arbitrary extension code. Do not load untrusted extensions.
+
+This POC supports local use, standard six-string tuning, a fixed chord catalogue, and full document replacement. Its original Web Audio synthesis approximates plucked strings. It is not recorded guitar audio. There is no capo, alternate tuning, chord editor, rhythm arrangement, cloud account, or MCP plugin. Local-file atomic replacement supports normal restart persistence, not a guarantee of power-loss durability or network-filesystem recovery.
+
+## Verify changes
+
+Run extension discovery in a fresh checkout with dependencies installed and no `dist`, before building:
 
 ```sh
-npm test
-# 在尚未构建、没有 dist 的 checkout 中检查项目扩展发现：
+npm ci
 npm run verify:extension
+npm test
 npm run build
 npx playwright install chromium --only-shell
-npm run verify:browser
 npm run verify:chat:probe
-# 以下检查会使用 Pi 中已配置的模型，产生最多三个用户输入的用量：
-npm run verify:chat:browser
+npm run verify:browser
 ```
 
-`npm test` 使用真实 HTTP 服务和临时目录，覆盖乐理数据、校验、冲突、持久化、目录锁、SSE 和 CLI。它不等于浏览器验证。
+`verify:extension` checks automatic project discovery in an offline Pi with temporary configuration, no saved session, and no `-e`. It sends no model prompt and does not generate `dist`.
 
-`verify:extension` 在没有 `dist` 的 checkout 中启动离线、无会话的 Pi，使用临时配置和数据目录。它不传 `-e`，检查 Pi 自动发现 `.pi/extensions/tele.js` 并注册 `/tele`，不发送模型输入。已构建的目录不能运行这个检查；请使用安装了依赖的新 checkout。
+`npm test` uses real HTTP services, temporary directories, and CLI processes. It covers music data, validation, conflicts, persistence, locks, SSE, private chat access, semantic notices, and locale coverage and fallback. Unit tests do not replace browser verification.
 
-`verify:browser` 启动生产构建，用生产 CLI 创建和更新页面。它检查来自其他站点的链接导航、单和弦及整组自然结束后的状态、更新与停止后的提示保留、无自动播放、SVG 图标响应、焦点、键盘、连接恢复及桌面和手机布局。
+`verify:chat:probe` drives a real no-model Pi bridge and browser. It checks prior branch history, excluded private payloads, real terminal wait events, consumed-input uncertainty, tool restoration, session revocation, and delayed-input cancellation before provider work. It also tests both UI languages and accessibility labels, saved and fallback locales, blocked storage, unchanged drafts and history, every dock and collapse layout, and phone width without overflow.
 
-脚本挂起真实音频上下文，等待超过原定结束时间，更新白板后恢复渲染，并检查没有旧白板的 PCM 输出。离线渲染另行确认挂起时停止不会在恢复后泄漏尾音。脚本还从 `/assets/audio.js` 导入生产合成函数，在 `OfflineAudioContext` 中生成 D 和 Gm 的音频，检查有限、非零且不削波的样本。
+`verify:browser` drives the production build and CLI. It checks linked navigation, natural audio completion, cancellation and obsolete-playback silence, language switching during playback, focus, keyboard controls, reconnect, and desktop and phone layouts. It renders production synthesis into WAV files and checks finite, nonzero, unclipped samples. These checks are not subjective listening. Use speakers or headphones to judge the sound.
 
-原有截图、WAV 和报告写到 `.audit/browser/`。对话验证的截图和报告写到 `.audit/chat/`。无模型探针先验证当前分支历史、终端等待和撤销；真实模型检查再验证浏览器续聊、白板工具修改和停止。两者都是独立预览 Pi，不是你的原 CLI 会话。脚本最后关闭自己的浏览器和服务，并删除临时数据。
+Screenshots, WAV files, and reports are local artifacts under `.audit/browser/` and `.audit/chat/`. Scripts use temporary data and ports, close only their own processes, and remove temporary data.
 
-这些检查不代表主观试听。要判断听感，打开白板并通过你的扬声器或耳机实际聆听。
+The optional model proof makes up to three user prompts and incurs usage on the configured Pi model. It is separate from the no-model probe:
 
-## POC 边界
+```sh
+npm run verify:chat:browser
+# Optional model override:
+TELE_TEST_MODEL=github-copilot/gpt-6-luna npm run verify:chat:browser
+```
 
-只支持本机、标准六弦调弦、固定和弦库及完整文档替换。声音是原创 Web Audio 合成拨弦，不是真实吉他录音。没有变调夹、自定义调弦、和弦编辑器、节奏编排、云端账号或 MCP 插件。
+It checks earlier-conversation recall, streaming browser continuation, actual board-tool updates, persisted Pi history, and browser abort in a disposable Pi. It does not attach to your original CLI or change global Pi configuration.
 
-[接口与限制](docs/reference.md) 记录精确的字段、容量、安全边界和持久化保证。[白板设计](docs/design.md) 和 [对话设计](docs/chat-design.md) 记录已选方案。
+## Documentation
+
+The READMEs and browser-generated UI support English and Simplified Chinese. Other documents are not all translated.
+
+- [Board API reference](docs/reference.md) is in English and records exact fields, limits, security, and persistence.
+- [Pi conversation reference](docs/chat-reference.md) is in Simplified Chinese and records private HTTP, semantic projection codes, and lifecycle limits.
+- [Board design](docs/design.md) and [conversation design](docs/chat-design.md) are in English.
+- [Third-party notices](THIRD_PARTY_NOTICES.md) record dependencies and license boundaries.
 
 ## References
 
-[TwoMoons](https://github.com/moayuisuda/two-moons) 是「将吉他指法与可播放音高关联」的产品参考。原始上游采用 GPL-3.0。本地参考 checkout 是 [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork，主要归属仍为原始上游。Tele 仅将其作为参考，没有导入或复制其源码、音频样本或其他素材。HTML、CSS、指板绘制与合成实现均为本项目原创。
+[TwoMoons](https://github.com/moayuisuda/two-moons) is the original upstream product reference for associating guitar fingering with playable pitches. Its upstream license is GPL-3.0. The local reference checkout was the [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork. Primary attribution belongs to the original upstream.
 
-依赖及许可证说明见 [第三方说明](THIRD_PARTY_NOTICES.md)。本仓库目前没有为 Tele 源码指定许可证。`package.json` 保留 `private: true`，不发布到 npm。
+Tele uses TwoMoons only as a reference. It imports or copies none of its source, audio samples, or other assets. This project's HTML, CSS, diagrams, and synthesis are independent implementations. See [third-party notices](THIRD_PARTY_NOTICES.md). This repository does not assign a license to Tele's source. `package.json` retains `private: true` to prevent npm publication.

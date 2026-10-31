@@ -1,5 +1,7 @@
 # Continue a live Pi conversation beside the board
 
+[English README](../README.md) | [简体中文 README](../README.zh-CN.md) | [中文对话参考](chat-reference.md)
+
 ## Goal and scope
 
 The user can open a conversation panel on the existing listening page, see prior messages, type followups and watch the same agent update the board. The panel docks right by default, or left/bottom, and collapses without losing the draft. This deliberately supersedes the original no-chat UI boundary while retaining the existing agent as the conversation owner.
@@ -36,22 +38,7 @@ The extension lazily starts the existing Tele HTTP server in the same process an
 
 Pi is the sole transcript writer. Existing BoardStore remains the sole board writer. Browser holds only an authenticated display projection and draft/preferences. No second transcript database.
 
-Illustrative signatures, to be implemented with inferred strict schemas rather than duplicated handwritten wire types:
-
-```ts
-type ChatItem = { id: string; role: 'user' | 'assistant' | 'tool' | 'notice'; text: string };
-type ChatPhase = 'idle' | 'submitted' | 'busy' | 'stopping' | 'terminal-required' | 'disconnected';
-type ChatView = { binding: string; epoch: string; sequence: number; boardId: BoardId;
-  sessionLabel: string; phase: ChatPhase; items: ChatItem[]; truncated: boolean };
-type ChatCommand = { kind: 'send'; id: string; epoch: string; text: string }
-  | { kind: 'abort'; id: string; epoch: string; runId: string };
-interface ChatAdapter {
-  snapshot(): ChatView;
-  subscribe(listener: (view: ChatView) => void): () => void;
-  submit(command: ChatCommand): Receipt;
-  close(): void;
-}
-```
+`src/chat-schema.ts` defines strict Zod schemas and derives `ChatItem`, `ChatView`, and `ChatCommand` from them. `ChatItem.role` discriminates four variants. User and assistant items contain `text`. Tool items contain a bounded `name` and `status`. Notice items contain a stable `code`. `ChatView.notice` is a stable submission/lifecycle code or `null`, not display prose. Raw tool payloads remain private. [The conversation reference](chat-reference.md) lists exact codes and bounds.
 
 - `src/chat-schema.ts` owns bounded public projection/command schemas, used at the browser boundary.
 - `src/chat-server.ts` owns invitation/cookie authorization, private HTTP/SSE adaptation and limits, without Pi imports.
@@ -79,7 +66,7 @@ Pi's live extension APIs cannot generally answer another extension's terminal di
 
 ## Browser security
 
-Chat history and all commands are private even when board reads remain public. Generate a short-lived one-use pairing secret from the local Pi command; prefer URL fragment erased immediately and exchanged via same-origin POST. Issue an expiring HttpOnly SameSite=Strict cookie scoped to an opaque board/session binding. Browser storage retains only nonsecret binding identity and dock/collapse preferences, never the board-write token. No anonymous session listing, arbitrary file selection or public token mint endpoint.
+Chat history and all commands are private even when board reads remain public. Generate a short-lived one-use pairing secret from the local Pi command; prefer URL fragment erased immediately and exchanged via same-origin POST. Issue an expiring HttpOnly SameSite=Strict cookie scoped to an opaque board/session binding. Browser storage retains only nonsecret binding identity, dock/collapse preferences, and `tele.locale`, never the board-write token. No anonymous session listing, arbitrary file selection or public token mint endpoint.
 
 Keep loopback binding, Host/Origin/Fetch-Metadata checks and CSP. Require exact same-origin JSON mutations. Authenticate history, status, SSE, send, abort and disconnect. Revoke grants on detach/reload/session replacement. Reject expired/cross-board/stale epochs. Never log pairing/session tokens, credentials or private chat text as server diagnostics. Render messages as text, not HTML.
 
@@ -88,6 +75,18 @@ Keep loopback binding, Host/Origin/Fetch-Metadata checks and CSP. Require exact 
 Keep the existing warm-paper visual style. Panel has a clear session label, collapse button, position selector, readable scrollable history, streaming/tool status, labeled textarea, Send and Abort. Enter submits, Shift+Enter inserts a newline; IME composition must not submit accidentally. Preserve draft/focus when docking and incoming events arrive. Auto-scroll only if already near the bottom.
 
 Use container-aware board responsiveness: a400px panel on a1440px screen leaves1040px content even though viewport is still1440. Do not shrink three diagrams into unreadable cards. Narrow screens use a sensible bottom layout without overwriting the stored desktop preference.
+
+## English and Simplified Chinese
+
+`src/i18n.ts` owns the canonical English dictionary, a structurally checked Simplified Chinese dictionary, parameter functions, and locale preference logic. Schema-derived types require every phase, history notice, tool status, and lifecycle notice to have a translation. `src/locale-web.ts` connects that preference to the browser. No i18n framework or dependency was added.
+
+The header selector is outside the chat panel. It updates `html.lang` and the document title. A saved `tele.locale` choice wins over the primary navigator language. `zh*` maps to `zh-CN`; other languages map to `en`. Invalid stored values follow the navigator rule. Failed storage reads or writes do not prevent selection.
+
+A locale change updates generated text and accessibility attributes on existing nodes. It does not call `apply`, send a command, replace the composer, render a board snapshot, or stop or start audio. Chat history updates generated roles, tool status, and notice labels without touching plain message text. Board controls and diagrams update labels without replacing chord nodes or cancellation handles. User content and session names are never translated, even when they equal old generated Chinese prose.
+
+This changes the ephemeral chat wire projection. It is not a board migration and does not rewrite persisted Pi entries. Old text-only tool/notice items and prose-valued `ChatView.notice` are rejected by the current strict schema. There is no legacy compatibility alias. Reload the browser after updating the extension. The private revocation registry and authorization protocol are unchanged.
+
+The no-model Pi/browser probe verifies both locales, primary-language fallback, saved choice, invalid preference and blocked storage, visible and accessible generated labels, unchanged original Pi messages and board snapshots, retained composer node/focus/selection, all docks and collapse modes, and phone width. The production browser/audio suite verifies a language switch during active playback retains the existing context and Stop handle. Screenshots for both languages are local `.audit/chat/probe-en-*.png` and `.audit/chat/probe-zh-CN-*.png` artifacts. The paid model verifier sets an explicit initial Chinese locale and permits the new storage key; it is not part of the no-model implementation proof.
 
 ## Synthesis
 
@@ -109,7 +108,7 @@ Pi may populate optional tool fields even for a read action. The bound tool ther
 
 The single tool name is `tele_board`, with no namespace and `model-only` exposure. Both declarations and the tool-call gate restrict attached runs. Terminal text remains available. Branch navigation revokes the binding as well as session replacement, avoiding silent changes in the selected history. `off` revokes access immediately, then waits for safe settlement before restoring the previous tool set.
 
-Desktop docking, mobile bottom layout, collapse state, draft preservation and container-aware chords are implemented without a framework. Only nonsecret binding identity and layout preferences are stored. Drafts are not persisted through page reload. [The reference](chat-reference.md) records exact limits and failure behavior.
+Desktop docking, mobile bottom layout, collapse state, draft preservation and container-aware chords are implemented without a framework. Only nonsecret binding identity, layout preferences, and locale are stored. Drafts are not persisted through page reload. [The reference](chat-reference.md) records exact limits and failure behavior.
 
 Verification first exercised extension activation, original history and consumed submission without model work. A later real model preview used configured credentials and only the bound board tool. No global auth/config edits or unrelated transcript reads were needed.
 

@@ -68,6 +68,7 @@ try {
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
   await page.addInitScript(() => {
+    localStorage.setItem('tele.locale', 'zh-CN');
     const NativeAudioContext = window.AudioContext;
     window.AudioContext = class extends NativeAudioContext {
       constructor(...args) {
@@ -135,6 +136,14 @@ try {
   await page.locator('.chord').first().click();
   await page.waitForSelector('.chord.is-active');
   assert([...audioContexts.values()].some(context => context.contextType === 'realtime' && context.contextState === 'running'), 'Real click activated a running AudioContext');
+  const contextCount = audioContexts.size;
+  const active = await page.locator('.is-active').count();
+  await page.locator('#locale').selectOption('en');
+  assert.equal(audioContexts.size, contextCount, 'Locale switching does not create audio contexts');
+  assert.equal(await page.locator('.is-active').count(), active, 'Locale switching preserves active playback controls');
+  assert(!(await page.locator('#stop').isDisabled()), 'Locale switching retains the live cancellation handle');
+  assert.match(await page.locator('#feedback').textContent(), /Listening to D/);
+  await page.locator('#locale').selectOption('zh-CN');
   await assertPlaybackEnded(page);
   await page.locator('.chord').first().click();
   await page.waitForSelector('.chord.is-active');

@@ -19,7 +19,9 @@ export default function probe(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       await ctx.newSession({ setup: async manager => {
         manager.appendMessage({ role: 'user', content: 'Old canary: cobalt cadence.', timestamp: 1 });
-        const kept = manager.appendMessage({ role: 'user', content: 'Recent music question.', timestamp: 2 });
+        const kept = manager.appendMessage({ role: 'user', content: 'Pi 已压缩模型上下文。这里仍显示当前分支的原始对话。', timestamp: 2 });
+        manager.appendMessage({ role: 'toolResult', toolCallId: 'probe-tool', toolName: 'tele_board', content: [{ type: 'text', text: 'Private raw tool payload' }], isError: false, timestamp: 3 });
+        manager.appendSessionInfo('用户 session name');
         manager.appendCompaction('Private summary must not be projected', kept, 12000);
       } });
     },

@@ -12,7 +12,7 @@ export class PiChat implements ChatAdapter {
   private prompts = 0;
   private sequence = 0;
   private idleVersion = 0;
-  private notice = '';
+  private notice: ChatView['notice'] = null;
   private submission: ChatView['submission'] = null;
   private submittedTextHash = '';
   private submissionBranchLength = 0;
@@ -69,7 +69,7 @@ export class PiChat implements ChatAdapter {
       this.submission = { id: command.id, state: 'submitted' };
       this.submittedTextHash = createHash('sha256').update(command.text).digest('hex');
       this.submissionBranchLength = this.ctx.sessionManager.getBranch().length;
-      this.notice = '已提交给 Pi，尚未确认进入对话。不会自动重发。';
+      this.notice = 'input-submitted';
       receipt = { id: command.id, status: 'submitted' };
       this.receipts.set(command.id, { hash, receipt });
       this.changed();
@@ -77,7 +77,7 @@ export class PiChat implements ChatAdapter {
         if (this.submission?.id !== command.id || this.submission.state !== 'submitted') return;
         this.submission = { id: command.id, state: 'unknown' };
         if (this.activity.kind === 'submitted') this.activity = { kind: 'uncertain' };
-        this.notice = '未观察到输入。可能被其他扩展处理或提交失败；不会重发。请在终端检查，必要时 off 后重新连接。';
+        this.notice = 'input-unobserved';
         this.changed();
       }, this.observationMs);
       this.observation.unref();
@@ -86,7 +86,7 @@ export class PiChat implements ChatAdapter {
         clearTimeout(this.observation);
         this.activity = { kind: 'uncertain' };
         this.submission = { id: command.id, state: 'unknown' };
-        this.notice = '提交结果不确定。请检查 Pi 终端，不会自动重发。';
+        this.notice = 'submission-uncertain';
         this.changed();
       }
     } else {
@@ -94,7 +94,7 @@ export class PiChat implements ChatAdapter {
       receipt = { id: command.id, status: 'stop-requested' };
       this.receipts.set(command.id, { hash, receipt });
       this.activity = { kind: 'stopping', runId: command.runId };
-      this.notice = '已请求停止。等待 Pi 实际结束；终端对话框可能仍需操作。';
+      this.notice = 'stop-requested';
       this.changed();
       this.ctx.abort();
     }
@@ -114,7 +114,7 @@ export class PiChat implements ChatAdapter {
     if (userText !== undefined && this.submission && ['submitted', 'unknown'].includes(this.submission.state) && createHash('sha256').update(userText).digest('hex') === this.submittedTextHash) {
       this.submission = { ...this.submission, state: 'observed' };
       clearTimeout(this.observation);
-      this.notice = '已观察到本次输入进入 Pi 对话。';
+      this.notice = 'input-observed';
     }
     this.live = boundItems([...this.live.filter(item => item.id !== this.liveId && !item.id.startsWith(`${this.liveId}:`)), ...messageItems(message, this.liveId)]).items;
     this.changed();
@@ -137,7 +137,7 @@ export class PiChat implements ChatAdapter {
         });
         this.submission = { ...this.submission, state: observed ? 'settled' : 'unknown' };
       }
-      this.notice = this.submission?.state === 'unknown' ? 'Pi 已结束，但未确认浏览器输入进入对话。请检查历史，不会重发。' : 'Pi 本次运行已结束。';
+      this.notice = this.submission?.state === 'unknown' ? 'settled-unobserved' : 'run-ended';
     }
     this.changed();
   }

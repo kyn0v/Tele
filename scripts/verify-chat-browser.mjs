@@ -32,6 +32,7 @@ try {
   const origin = new URL(invitation).origin;
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  await page.addInitScript(() => { if (!localStorage.getItem('tele.locale')) localStorage.setItem('tele.locale', 'zh-CN'); });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(invitation).catch(() => { throw new Error('Preview pairing navigation failed'); });
@@ -40,7 +41,7 @@ try {
   assert.match(await page.locator('.chat-history').textContent(), /Copper Lantern/);
   assert.equal(await page.evaluate(() => document.cookie), '', 'Pair cookie is HttpOnly');
   const stored = await page.evaluate(() => Object.entries(localStorage));
-  assert(stored.every(([key]) => /tele\.chat\.(binding:|dock|collapsed)/.test(key)), 'Storage contains only approved nonsecret preferences/binding');
+  assert(stored.every(([key]) => /^(tele\.locale|tele\.chat\.(binding:[a-z0-9-]+|dock|collapsed))$/.test(key)), 'Storage contains only approved nonsecret preferences/binding');
   const anonymous = await browser.newContext();
   const binding = await page.evaluate(() => localStorage.getItem('tele.chat.binding:preview'));
   assert.equal((await anonymous.request.get(`${origin}/api/chat/${binding}`)).status(), 401);
@@ -90,6 +91,9 @@ try {
   assert(await page.locator('#chat-input').evaluate(input => input === window.composerProof), 'Board update preserves composer identity');
   assert.equal(await page.locator('#chat-input').inputValue(), '', 'Observed input clears matching draft');
   assert.match(await page.locator('.chat-history').textContent(), /tele_board · 完成/);
+  const projection = await (await page.request.get(`${origin}/api/chat/${binding}`)).json();
+  assert(projection.items.some(item => item.role === 'tool' && item.name === 'tele_board' && item.status === 'completed' && !('text' in item)), 'Generated tool status uses the semantic wire shape');
+  assert(projection.notice === null || typeof projection.notice === 'string' && /^[a-z]+(?:-[a-z]+)+$/.test(projection.notice), 'Lifecycle feedback uses a stable code, not localized prose');
   const streamChanges = await page.evaluate(() => window.chatChanges.length);
   assert(streamChanges > 1, 'Browser observed multiple in-flight projection changes');
   await page.screenshot({ path: join(output, 'board-updated.png') });

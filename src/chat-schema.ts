@@ -6,11 +6,16 @@ export const CHAT_TEXT_LIMIT = 32_768;
 export const CHAT_BYTES = 256 * 1024;
 export const BindingSchema = z.uuid().brand<'ChatBinding'>();
 const identity = z.uuid();
-export const ChatItemSchema = z.strictObject({
-  id: z.string().max(160),
-  role: z.enum(['user', 'assistant', 'tool', 'notice']),
-  text: z.string().max(CHAT_TEXT_LIMIT),
-});
+export const HistoryNoticeSchema = z.enum(['context-compacted', 'model-failed', 'reply-aborted']);
+export const ChatNoticeSchema = z.enum(['input-submitted', 'input-unobserved', 'submission-uncertain', 'stop-requested', 'input-observed', 'settled-unobserved', 'run-ended']);
+const itemId = z.string().max(160);
+const text = z.string().max(CHAT_TEXT_LIMIT);
+export const ChatItemSchema = z.discriminatedUnion('role', [
+  z.strictObject({ id: itemId, role: z.literal('user'), text }),
+  z.strictObject({ id: itemId, role: z.literal('assistant'), text }),
+  z.strictObject({ id: itemId, role: z.literal('tool'), name: z.string().max(100), status: z.enum(['calling', 'completed', 'failed']) }),
+  z.strictObject({ id: itemId, role: z.literal('notice'), code: HistoryNoticeSchema }),
+]);
 export const ChatViewSchema = z.strictObject({
   binding: BindingSchema,
   epoch: identity,
@@ -20,7 +25,7 @@ export const ChatViewSchema = z.strictObject({
   sessionLabel: z.string().max(160),
   phase: z.enum(['idle', 'submitted', 'busy', 'stopping', 'terminal-required', 'uncertain', 'disconnected']),
   runId: identity.nullable(),
-  notice: z.string().max(400),
+  notice: ChatNoticeSchema.nullable(),
   submission: z.strictObject({ id: identity, state: z.enum(['submitted', 'observed', 'settled', 'unknown']) }).nullable(),
   items: z.array(ChatItemSchema).max(CHAT_LIMIT),
   truncated: z.boolean(),

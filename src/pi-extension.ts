@@ -100,17 +100,17 @@ export default function tele(pi: ExtensionAPI) {
   pi.registerCommand('tele', {
     description: 'Attach this live Pi to a music board, or off to detach and restore tools',
     handler: async (args, ctx) => {
-      if (changing) { ctx.ui.notify('Tele 正在切换，请稍后重试。', 'warning'); return; }
+      if (changing) { ctx.ui.notify('Tele is switching. Try again shortly.', 'warning'); return; }
       changing = true;
       try {
         if (args.trim() === 'off') {
           await detach(ctx, () => ctx.waitForIdle());
-          ctx.ui.notify('Tele 已断开。Pi 仍在运行，原工具已恢复。', 'info'); return;
+          ctx.ui.notify('Tele detached. Pi is still running and the previous tools are restored.', 'info'); return;
         }
         const parsed = BoardIdSchema.safeParse(args.trim());
-        if (!parsed.success) { ctx.ui.notify('用法：/tele <boardid> 或 /tele off', 'warning'); return; }
-        if (!ctx.isIdle() || ctx.hasPendingMessages()) { ctx.ui.notify('请等待 Pi 空闲且待处理消息清空后连接。', 'warning'); return; }
-        if (owned) { ctx.ui.notify('已经连接。请先 /tele off，再显式连接以重新配对。', 'warning'); return; }
+        if (!parsed.success) { ctx.ui.notify('Usage: /tele <boardid> or /tele off', 'warning'); return; }
+        if (!ctx.isIdle() || ctx.hasPendingMessages()) { ctx.ui.notify('Wait until Pi is idle and its pending messages are cleared before attaching.', 'warning'); return; }
+        if (owned) { ctx.ui.notify('Already attached. Run /tele off, then attach explicitly to pair again.', 'warning'); return; }
         const currentGeneration = ++generation;
         const config = configuration();
         const port = z.coerce.number().int().min(0).max(65535).parse(pi.getFlag('tele-port') ?? config.port);
@@ -123,26 +123,26 @@ export default function tele(pi: ExtensionAPI) {
         const service = await startServer({ dataDir, port, chat });
         if (currentGeneration !== generation || !ctx.isIdle() || ctx.hasPendingMessages()) {
           chat.close(); await service.stop();
-          ctx.ui.notify('Pi 状态已变化，本次没有连接。请在空闲时重试。', 'warning'); return;
+          ctx.ui.notify('Pi state changed. Not attached. Try again when idle.', 'warning'); return;
         }
         const tools = pi.getActiveTools().filter(name => name !== BOARD_TOOL);
         owned = { chat, service, tools, dispatch };
         if (!service.getBoard(parsed.data)) service.putBoard(parsed.data, RevisionSchema.parse(0), demoContent);
         pi.setActiveTools([BOARD_TOOL]);
         if (!pi.getActiveTools().includes(BOARD_TOOL)) throw new Error('Tool allowlist excludes tele_board');
-        ctx.ui.setStatus('tele', `音乐模式 · ${parsed.data} · /tele off 恢复工具`);
+        ctx.ui.setStatus('tele', `Music mode · ${parsed.data} · /tele off restores tools`);
         const invitation = service.inviteChat();
         if (!invitation) throw new Error('Missing invitation');
-        ctx.ui.notify(`Tele 已连接当前 Pi。临时只允许白板工具。终端确认框仍需终端操作。两分钟内打开以下一次性私有链接（不要分享）：\n${invitation}`, 'info');
+        ctx.ui.notify(`Tele attached to this Pi. Only the board tool is temporarily allowed. Confirmation dialogs still require the terminal. Open this one-time private link within two minutes. Do not share it.\n${invitation}`, 'info');
         if (ctx.mode === 'tui') {
           const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'rundll32' : 'xdg-open';
           const open = spawn(command, process.platform === 'win32' ? ['url.dll,FileProtocolHandler', invitation] : [invitation], { stdio: 'ignore', detached: true });
-          open.on('error', () => ctx.ui.notify('无法自动打开浏览器，请使用上面的私有链接。', 'warning'));
+          open.on('error', () => ctx.ui.notify('Could not open the browser automatically. Use the private link above.', 'warning'));
           open.unref();
         }
       } catch {
         await detach(ctx);
-        ctx.ui.notify('Tele 启动失败。请检查数据目录、浏览器构建产物和端口，并确认 --tools 包含 tele_board。若独立服务占用它们，请由其所有者先停止服务，再连接；不会自动终止其他进程。', 'error');
+        ctx.ui.notify('Tele startup failed. Check the data directory, browser build, and port, and ensure --tools includes tele_board. If a standalone service owns them, its owner must stop it before attaching. Tele never terminates other processes.', 'error');
       } finally { changing = false; }
     },
   });

@@ -8,14 +8,14 @@ export function messageItems(message: MessageStartEvent['message'], id: string):
     const items: ChatItem[] = text ? [{ id, role: message.role, text }] : [];
     if (message.role === 'assistant') {
       for (const block of message.content) {
-        if (block.type === 'toolCall') items.push({ id: `${id}:${block.id}`.slice(0, 160), role: 'tool', text: `${block.name.slice(0, 100)} · 调用` });
+        if (block.type === 'toolCall') items.push({ id: `${id}:${block.id}`.slice(0, 160), role: 'tool', name: block.name.slice(0, 100), status: 'calling' });
         if (items.length >= CHAT_LIMIT) break;
       }
-      if (message.stopReason === 'error' || message.stopReason === 'aborted') items.push({ id: `${id}:outcome`, role: 'notice', text: message.stopReason === 'error' ? '模型请求失败。详情请在 Pi 终端查看。' : '本次回复已中止。已提交的白板更新不会撤销。' });
+      if (message.stopReason === 'error' || message.stopReason === 'aborted') items.push({ id: `${id}:outcome`, role: 'notice', code: message.stopReason === 'error' ? 'model-failed' : 'reply-aborted' });
     }
     return items;
   }
-  if (message.role === 'toolResult') return [{ id, role: 'tool', text: `${message.toolName.slice(0, 100)} · ${message.isError ? '失败' : '完成'}` }];
+  if (message.role === 'toolResult') return [{ id, role: 'tool', name: message.toolName.slice(0, 100), status: message.isError ? 'failed' : 'completed' }];
   return [];
 }
 
@@ -29,7 +29,7 @@ export function boundItems(items: ChatItem[], alreadyTruncated = false) {
     if (bytes + size > CHAT_BYTES) break;
     bytes += size; kept.push(item);
   }
-  return { items: kept.reverse(), truncated: alreadyTruncated || kept.length < items.length || kept.some(item => item.text.length === CHAT_TEXT_LIMIT) };
+  return { items: kept.reverse(), truncated: alreadyTruncated || kept.length < items.length || kept.some(item => 'text' in item && item.text.length === CHAT_TEXT_LIMIT) };
 }
 
 export function branchHistory(branch: SessionEntry[]) {
@@ -39,7 +39,7 @@ export function branchHistory(branch: SessionEntry[]) {
     const entry = branch[start];
     if (!entry) break;
     if (entry.type === 'message') items.unshift(...messageItems(entry.message, entry.id));
-    else if (entry.type === 'compaction') items.unshift({ id: entry.id, role: 'notice', text: 'Pi 已压缩模型上下文。这里仍显示当前分支的原始对话。' });
+    else if (entry.type === 'compaction') items.unshift({ id: entry.id, role: 'notice', code: 'context-compacted' });
   }
   return boundItems(items, start >= 0);
 }

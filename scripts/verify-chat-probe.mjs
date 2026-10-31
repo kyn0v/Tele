@@ -19,7 +19,10 @@ try {
   const path = `${origin}/api/chat/${binding}`;
   assert.equal((await fetch(path)).status, 401);
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, locale: 'zh-CN' });
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  let browserCommands = 0;
+  page.on('request', request => { if (request.method() === 'POST' && request.url().endsWith('/command')) browserCommands++; });
   await page.goto(invitation.href).catch(() => { throw new Error('Probe pairing navigation failed'); });
   await page.waitForFunction(() => document.querySelector('.chat-panel')?.dataset.phase === 'idle');
   assert.equal(new URL(page.url()).hash, '');
@@ -29,23 +32,95 @@ try {
   assert(grant?.httpOnly); assert.equal(grant.sameSite, 'Strict');
   const cookie = `${grant.name}=${grant.value}`;
   await mkdir(`${root}.audit/chat`, { recursive: true });
-  await page.locator('#chat-input').fill('保留输入');
-  for (const dock of ['right', 'left', 'bottom']) {
-    await page.getByLabel('对话面板位置').selectOption(dock);
-    assert.equal(await page.locator('#chat-input').inputValue(), '保留输入');
-    assert(await page.locator('.chat-session').isVisible());
-    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    await page.screenshot({ path: `${root}.audit/chat/probe-${dock}.png` });
-  }
-  await page.setViewportSize({ width: 390, height: 844 });
-  assert(await page.locator('.chat-limitation').isVisible());
-  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-  await page.screenshot({ path: `${root}.audit/chat/probe-mobile.png` });
   const headers = { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' };
   const view = await (await fetch(path, { headers })).json();
-  assert(view.items.some(item => item.text.includes('Old canary: cobalt cadence.')));
-  assert(view.items.some(item => item.role === 'notice' && item.text.includes('压缩')));
+  const originalBoard = await (await fetch(`${origin}/api/boards/preview`)).json();
+  const originalMessages = await pi.command('get_messages');
+  const userNotice = 'Pi 已压缩模型上下文。这里仍显示当前分支的原始对话。';
+  assert(view.items.some(item => item.role === 'user' && item.text.includes('Old canary: cobalt cadence.')));
+  assert(view.items.some(item => item.role === 'notice' && item.code === 'context-compacted'));
+  assert(view.items.some(item => item.role === 'tool' && item.name === 'tele_board' && item.status === 'completed'));
   assert(!JSON.stringify(view).includes('Private summary'));
+  assert(!JSON.stringify(view).includes('Private raw tool payload'));
+  for (const [browserLocale, saved, expected] of [['zh-TW', null, 'zh-CN'], ['en-US', null, 'en'], ['fr-FR', 'invalid', 'en'], ['en-US', 'zh-CN', 'zh-CN'], ['zh-CN', 'en', 'en']]) {
+    const context = await browser.newContext({ locale: browserLocale });
+    if (saved) await context.addInitScript(value => localStorage.setItem('tele.locale', value), saved);
+    const fallback = await context.newPage(); await fallback.goto(`${origin}/b/preview`);
+    await fallback.waitForFunction(() => document.body.dataset.revision === '1');
+    assert.equal(await fallback.locator('html').getAttribute('lang'), expected);
+    assert.equal(await fallback.locator('#locale').inputValue(), expected);
+    await context.close();
+  }
+  const blockedContext = await browser.newContext({ locale: 'zh-CN' });
+  await blockedContext.addInitScript(() => Object.defineProperty(window, 'localStorage', { get() { throw new Error('Storage blocked'); } }));
+  const blocked = await blockedContext.newPage(); await blocked.goto(`${origin}/b/preview`);
+  await blocked.waitForFunction(() => document.body.dataset.revision === '1');
+  await blocked.locator('#locale').selectOption('en');
+  assert.equal(await blocked.getByRole('button', { name: '■ Stop playback', exact: true }).count(), 1);
+  await blockedContext.close();
+  await page.locator('#chat-input').fill('保留输入 draft');
+  await page.locator('#chat-input').focus();
+  await page.evaluate(() => {
+    window.composerProof = document.querySelector('#chat-input');
+    window.composerProof.setSelectionRange(2, 4);
+  });
+  for (const language of ['en', 'zh-CN']) {
+    await page.locator('#locale').selectOption(language);
+    assert.equal(await page.locator('html').getAttribute('lang'), language);
+    assert.equal(await page.locator('#locale').inputValue(), language);
+    assert.equal(await page.evaluate(() => localStorage.getItem('tele.locale')), language);
+    assert(await page.getByLabel(language === 'en' ? 'Language' : '语言', { exact: true }).isVisible());
+    assert.equal(await page.getByLabel(language === 'en' ? 'Continue the conversation' : '继续对话', { exact: true }).count(), 1);
+    assert(await page.getByRole('button', { name: language === 'en' ? 'Send' : '发送', exact: true }).isEnabled());
+    assert.match(await page.locator('.chat-session').textContent(), /用户 session name/);
+    assert.equal(await page.locator('.chat-user .chat-text').last().textContent(), userNotice);
+    assert.match(await page.locator('.chat-notice .chat-text').textContent(), language === 'en' ? /Pi compacted the model context/ : /Pi 已压缩模型上下文/);
+    assert.equal(await page.locator('.chat-tool .chat-text').textContent(), `tele_board · ${language === 'en' ? 'Completed' : '完成'}`);
+    assert.match(await page.locator('.diagram').first().getAttribute('aria-label'), language === 'en' ? /muted, muted, 0, 2, 3, 2/ : /不弹、不弹、0、2、3、2/);
+    assert.match(await page.locator('#tempo').textContent(), language === 'en' ? /Two beats per chord/ : /每和弦两拍/);
+    assert(await page.locator('#stop').isDisabled(), 'Locale changes never autoplay');
+    for (const dock of ['right', 'left', 'bottom']) {
+      await page.getByLabel(language === 'en' ? 'Conversation panel position' : '对话面板位置').selectOption(dock);
+      assert.equal(await page.locator('#chat-input').inputValue(), '保留输入 draft');
+      assert(await page.locator('#chat-input').evaluate(input => input === window.composerProof));
+      assert(await page.locator('.chat-session').isVisible());
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.screenshot({ path: `${root}.audit/chat/probe-${language}-${dock}.png` });
+      await page.locator('.chat-collapse').click();
+      assert(await page.locator('#locale').isVisible());
+      assert.equal(await page.locator('.chat-collapse').getAttribute('aria-expanded'), 'false');
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await page.screenshot({ path: `${root}.audit/chat/probe-${language}-${dock}-collapsed.png` });
+      await page.locator('.chat-collapse').click();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert(await page.locator('.chat-limitation').isVisible());
+    assert(await page.locator('#chat-input').isVisible());
+    assert(await page.locator('#locale').isVisible());
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: `${root}.audit/chat/probe-${language}-mobile.png` });
+    await page.locator('.chat-collapse').click();
+    assert(await page.locator('#locale').isVisible());
+    await page.screenshot({ path: `${root}.audit/chat/probe-${language}-mobile-collapsed.png` });
+    await page.locator('#locale').selectOption(language === 'en' ? 'zh-CN' : 'en');
+    assert.equal(await page.locator('.chat-collapse').getAttribute('aria-expanded'), 'false', 'Mobile language switch does not expand chat');
+    await page.locator('#locale').selectOption(language);
+    await page.locator('.chat-collapse').click();
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  await page.locator('#chat-input').focus();
+  await page.evaluate(() => {
+    const input = document.querySelector('#chat-input'); input.setSelectionRange(2, 4);
+    const select = document.querySelector('#locale'); select.value = 'en'; select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  assert.deepEqual(await page.locator('#chat-input').evaluate(input => [input === window.composerProof, input === document.activeElement, input.selectionStart, input.selectionEnd, input.value]), [true, true, 2, 4, '保留输入 draft']);
+  assert.equal(browserCommands, 0, 'Language and layout changes send no Pi commands');
+  assert.deepEqual(await (await fetch(path, { headers })).json(), view, 'Locale switch leaves the chat projection unchanged');
+  assert.deepEqual(await (await fetch(`${origin}/api/boards/preview`)).json(), originalBoard, 'Locale switch never edits boards');
+  assert.deepEqual(await pi.command('get_messages'), originalMessages, 'Locale switch never edits Pi history');
+  await page.reload(); await page.waitForFunction(() => document.querySelector('.chat-panel')?.dataset.phase === 'idle');
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en', 'Saved choice wins over Chinese navigator on reload');
+  await page.locator('#locale').selectOption('zh-CN');
   const toolsNotice = pi.wait(event => event.type === 'extension_ui_request' && event.message?.includes('probeTools'));
   await pi.command('prompt', { message: '/probe-tools' });
   assert.deepEqual(JSON.parse((await toolsNotice).message).probeTools, ['tele_board']);
@@ -98,7 +173,8 @@ try {
   const replacement = new URL(await pi.attach());
   await pi.command('new_session');
   await assert.rejects(fetch(`${replacement.origin}/api/capabilities`));
-  const report = { runtime: 'Pi 1.2.0 in-process extension, RPC used only as preview driver', providerRequests: late.providerRequests, agentStarts, lateSubmission: 'An input suspended by another extension was revoked by off and aborted before provider work', originalPreCompactionHistory: true, privateSummaryExcluded: true, voidSubmissionConsumed: 'unknown after bounded observation', terminalDialog: 'real ui_prompt_start/end observed; driver explicitly declined, browser never approves', toolLoadout: 'bound only, restored after off', lifecycle: 'off keeps Pi alive, new_session stops owned server and revokes grant' };
+  assert.deepEqual(errors, []);
+  const report = { internationalization: 'English and Simplified Chinese generated visible/accessibility labels; navigator fallback, invalid preference, blocked storage, persistence; draft node/focus/selection, user notice text, session name, board and original Pi history unchanged; all docks/collapsed/mobile without overflow; zero locale-triggered commands', runtime: 'Pi 1.2.0 in-process extension, RPC used only as preview driver', providerRequests: late.providerRequests, agentStarts, lateSubmission: 'An input suspended by another extension was revoked by off and aborted before provider work', originalPreCompactionHistory: true, privateSummaryExcluded: true, voidSubmissionConsumed: 'unknown after bounded observation', terminalDialog: 'real ui_prompt_start/end observed; driver explicitly declined, browser never approves', toolLoadout: 'bound only, restored after off', lifecycle: 'off keeps Pi alive, new_session stops owned server and revokes grant' };
   await mkdir(`${root}.audit/chat`, { recursive: true });
   await writeFile(`${root}.audit/chat/probe.json`, JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

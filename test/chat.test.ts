@@ -10,7 +10,7 @@ import { BoardCommandSchema } from '../src/pi-extension.js';
 import { HttpError, json } from '../src/http.js';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { PiChat } from '../src/pi-chat.js';
-import { branchHistory } from '../src/chat-history.js';
+import { branchHistory, messageItems } from '../src/chat-history.js';
 import { BindingSchema, ChatViewSchema, type ChatAdapter, type ChatCommand, type ChatView } from '../src/chat-schema.js';
 import { BoardIdSchema } from '../src/schema.js';
 import { startServer } from '../src/server.js';
@@ -34,6 +34,7 @@ test('admission reserves once, binds IDs to content, handles busy/pending/stale 
   assert.throws(() => chat.submit(send('/tele off')), /not slash/);
   const command = send(); const receipt = chat.submit(command);
   assert.equal(receipt.status, 'submitted');
+  assert.equal(chat.snapshot().notice, 'input-submitted');
   assert.equal(chat.snapshot().runId, null, 'A send reservation is not an abortable run');
   assert.deepEqual(chat.submit(command), receipt); assert.equal(calls.length, 1);
   assert.deepEqual(calls[0]?.options, { expandPromptTemplates: false });
@@ -47,7 +48,7 @@ test('admission reserves once, binds IDs to content, handles busy/pending/stale 
   chat.sync(ctx, true);
   assert.equal(chat.snapshot().submission?.state, 'settled');
   assert.equal(chat.snapshot().phase, 'idle');
-  assert(chat.snapshot().items.some(item => item.text === 'Music question'));
+  assert(chat.snapshot().items.some(item => item.role === 'user' && item.text === 'Music question'));
   chat.close(); assert.throws(() => chat.submit(send()), /detached/);
 });
 
@@ -56,6 +57,7 @@ test('void dispatch ambiguity is bounded and never auto-resends; terminal prompt
   chat.submit(send());
   await new Promise(resolve => setTimeout(resolve, 30));
   assert.equal(chat.snapshot().phase, 'uncertain'); assert.equal(calls.length, 1);
+  assert.equal(chat.snapshot().notice, 'input-unobserved');
   assert.throws(() => chat.submit(send()), /busy/);
   chat.sync(ctx, true);
   setIdle(false); chat.started(ctx);
@@ -66,6 +68,7 @@ test('void dispatch ambiguity is bounded and never auto-resends; terminal prompt
   const abort: ChatCommand = { kind: 'abort', id: randomUUID(), epoch: chat.epoch, runId: firstRun };
   assert.equal(chat.submit(abort).status, 'stop-requested');
   assert.equal(chat.snapshot().phase, 'stopping'); assert.equal(aborts(), 1);
+  assert.equal(chat.snapshot().notice, 'stop-requested');
   chat.sync(ctx, true); chat.started(ctx);
   assert.notEqual(chat.snapshot().runId, firstRun);
   assert.throws(() => chat.submit({ ...abort, id: randomUUID() }), /no longer active/);
@@ -100,17 +103,29 @@ test('active branch projection includes old compacted text but excludes private 
   manager.appendMessage({ role: 'toolResult', toolCallId: 't1', toolName: 'read', content: [{ type: 'text', text: 'RESULT_SECRET' }], isError: false, timestamp: 4 });
   manager.appendCompaction('SUMMARY_SECRET', kept, 10000);
   const projected = branchHistory(manager.getBranch());
-  assert(projected.items.some(item => item.text === 'Old canary'));
-  assert(projected.items.some(item => item.text === 'read · 完成'));
+  assert(projected.items.some(item => item.role === 'user' && item.text === 'Old canary'));
+  assert(projected.items.some(item => item.role === 'tool' && item.name === 'read' && item.status === 'completed'));
+  assert(projected.items.some(item => item.role === 'tool' && item.name === 'read' && item.status === 'calling'));
+  assert(projected.items.some(item => item.role === 'notice' && item.code === 'context-compacted'));
   for (const secret of ['SYSTEM_SECRET', 'ABANDONED', 'RESULT_SECRET', 'SUMMARY_SECRET', 'THINKING_SECRET', 'ARG_SECRET']) assert(!JSON.stringify(projected).includes(secret));
   for (let i = 0; i < 130; i++) manager.appendMessage({ role: 'user', content: `${i} ${'音'.repeat(40000)}`, timestamp: i + 10 });
   const bounded = branchHistory(manager.getBranch());
   assert(bounded.truncated); assert(bounded.items.length <= 100); assert(Buffer.byteLength(JSON.stringify(bounded.items)) < 256 * 1024);
 });
 
+test('generated model outcomes and tool failures use codes without leaking raw error details', () => {
+  const assistant = {
+    role: 'assistant', content: [], api: 'openai-completions', provider: 'test', model: 'test', timestamp: 1, stopReason: 'error',
+    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+  } satisfies Parameters<typeof messageItems>[0];
+  assert.deepEqual(messageItems({ ...assistant, stopReason: 'error', errorMessage: 'Private provider error' }, 'error'), [{ id: 'error:outcome', role: 'notice', code: 'model-failed' }]);
+  assert.deepEqual(messageItems({ ...assistant, stopReason: 'aborted' }, 'abort'), [{ id: 'abort:outcome', role: 'notice', code: 'reply-aborted' }]);
+  assert.deepEqual(messageItems({ role: 'toolResult', toolCallId: 'call', toolName: 'tele_board', content: [{ type: 'text', text: 'Private tool failure' }], isError: true, timestamp: 2 }, 'tool'), [{ id: 'tool', role: 'tool', name: 'tele_board', status: 'failed' }]);
+});
+
 function adapter() {
   const listeners = new Set<(view: ChatView) => void>();
-  const view: ChatView = { binding: BindingSchema.parse(randomUUID()), epoch: randomUUID(), boardId, sequence: 0, idleVersion: 0, sessionLabel: 'Private canary', phase: 'idle', runId: null, notice: '', submission: null, items: [{ id: 'old', role: 'user', text: 'Private prior history' }], truncated: false };
+  const view: ChatView = { binding: BindingSchema.parse(randomUUID()), epoch: randomUUID(), boardId, sequence: 0, idleVersion: 0, sessionLabel: 'Private canary', phase: 'idle', runId: null, notice: null, submission: null, items: [{ id: 'old', role: 'user', text: 'Private prior history' }], truncated: false };
   const chat: ChatAdapter = { snapshot: () => view, subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener); }; }, submit(command) { return { id: command.id, status: 'submitted' }; } };
   return { chat, view, publish() { view.sequence++; for (const listener of listeners) listener(view); } };
 }
