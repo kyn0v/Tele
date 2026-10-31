@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19.0"
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
@@ -12,7 +12,8 @@
     "board": "node dist/cli.js",
     "test": "tsx --test test/*.test.ts",
     "verify:browser": "node scripts/verify-browser.mjs",
-    "verify:chat:probe": "node scripts/verify-chat-probe.mjs"
+    "verify:chat:probe": "node scripts/verify-chat-probe.mjs",
+    "verify:chat:browser": "node scripts/verify-chat-browser.mjs"
   },
   "dependencies": {
     "zod": "^4.1.12"

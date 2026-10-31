@@ -1,3 +1,4 @@
+import { mountChat } from './chat-web.js';
 import { scheduleChord, type Playback } from './audio.js';
 import { catalogue, notesFor, startFretFor, stringsFor, type ChordSymbol } from './music.js';
 import { BoardIdSchema, BoardSchema, type Board } from './schema.js';
@@ -158,6 +159,7 @@ const id = BoardIdSchema.safeParse(location.pathname.slice(3));
 if (!id.success) {
   title.textContent = '白板地址无效'; setConnection('disconnected');
 } else {
+  mountChat(id.data);
   const events = new EventSource(`/api/boards/${id.data}/events`);
   events.addEventListener('open', () => setConnection('connected'));
   events.addEventListener('snapshot', event => {

@@ -4,9 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { previewPi, root } from './pi-preview.mjs';
+import { chromium } from 'playwright';
 
 const directory = await mkdtemp(join(tmpdir(), 'audioharness-pi-probe-'));
 const pi = previewPi({ directory, extensions: [`${root}test/pi-probe-extension.ts`] });
+let browser;
 let modelStarts = 0;
 pi.observe(event => { if (event.type === 'agent_start') modelStarts++; });
 try {
@@ -17,9 +19,29 @@ try {
   const origin = invitation.origin;
   const path = `${origin}/api/chat/${binding}`;
   assert.equal((await fetch(path)).status, 401);
+  browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  await page.goto(invitation.href).catch(() => { throw new Error('Probe pairing navigation failed'); });
+  await page.waitForFunction(() => document.querySelector('.chat-panel')?.dataset.phase === 'idle');
+  assert.equal(new URL(page.url()).hash, '');
   const paired = await fetch(`${origin}/api/chat/pair`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json' }, body: JSON.stringify({ binding, invitation: secret }) });
-  assert.equal(paired.status, 200);
-  const cookie = paired.headers.get('set-cookie').split(';')[0];
+  assert.equal(paired.status, 401, 'Browser already consumed the invitation');
+  const grant = (await page.context().cookies()).find(cookie => cookie.path === `/api/chat/${binding}`);
+  assert(grant?.httpOnly); assert.equal(grant.sameSite, 'Strict');
+  const cookie = `${grant.name}=${grant.value}`;
+  await mkdir(`${root}.audit/chat`, { recursive: true });
+  await page.locator('#chat-input').fill('保留输入');
+  for (const dock of ['right', 'left', 'bottom']) {
+    await page.getByLabel('对话面板位置').selectOption(dock);
+    assert.equal(await page.locator('#chat-input').inputValue(), '保留输入');
+    assert(await page.locator('.chat-session').isVisible());
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: `${root}.audit/chat/probe-${dock}.png` });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert(await page.locator('.chat-limitation').isVisible());
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: `${root}.audit/chat/probe-mobile.png` });
   const headers = { Cookie: cookie, Origin: origin, 'Content-Type': 'application/json' };
   const view = await (await fetch(path, { headers })).json();
   assert(view.items.some(item => item.text.includes('Old canary: cobalt cadence.')));
@@ -32,6 +54,9 @@ try {
   const promptCommand = pi.command('prompt', { message: '/probe-prompt' });
   const dialog = await promptEvent;
   assert.equal((await (await fetch(path, { headers })).json()).phase, 'terminal-required');
+  await page.waitForFunction(() => document.querySelector('.chat-panel')?.dataset.phase === 'terminal-required');
+  assert(await page.getByRole('button', { name: '发送', exact: true }).isDisabled());
+  await page.screenshot({ path: `${root}.audit/chat/probe-terminal-required.png` });
   pi.respondUI({ id: dialog.id, confirmed: false });
   await promptCommand;
   assert.equal((await (await fetch(path, { headers })).json()).phase, 'idle');
@@ -50,7 +75,7 @@ try {
   assert.deepEqual(JSON.parse((await restoredNotice).message).probeTools, ['read']);
   assert.equal((await pi.command('get_state')).isStreaming, false);
   const next = new URL(await pi.attach());
-  assert.notEqual(next.hash, invitation.hash);
+  assert(next.hash !== invitation.hash, 'Reattachment renews its invitation');
   assert.equal((await fetch(`${next.origin}/api/chat/${binding}`, { headers })).status, 403, 'Old Origin cannot mutate a replacement service');
   await pi.command('new_session');
   await assert.rejects(fetch(`${next.origin}/api/capabilities`));
@@ -58,4 +83,4 @@ try {
   await mkdir(`${root}.audit/chat`, { recursive: true });
   await writeFile(`${root}.audit/chat/probe.json`, JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-} finally { await pi.close(); await rm(directory, { recursive: true, force: true }); }
+} finally { await browser?.close(); await pi.close(); await rm(directory, { recursive: true, force: true }); }
