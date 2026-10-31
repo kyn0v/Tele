@@ -120,6 +120,25 @@ The project-local `.pi/extensions/tele.js` imports `src/pi-extension.ts` through
 
 `npm run build` emits a standalone ESM module at `dist/public/assets/audio.js`, served as `/assets/audio.js`. Browser automation can import that module directly. There is no test-only global API. `web.js` contains its own bundled copy of the same source implementation.
 
+## Source discovery proof
+
+Commit `f9282ceb591f048175a1d439b3d3bf3bbfd24102` was checked out into a new detached temporary worktree. The exact sequence was `test ! -e dist`, `npm ci`, `test ! -e dist`, `npm run verify:extension`, then `test ! -e dist`. All commands succeeded, and the checkout had no tracked changes.
+
+The probe launched the pinned Pi 1.2.0 runtime with project trust for that process, isolated temporary configuration and data, offline mode, and no persisted session. It passed no `-e` flag and submitted only the `get_commands` RPC query, not a model prompt. Pi reported `/tele` from automatic project discovery of `.pi/extensions/tele.js`:
+
+```json
+{
+  "distAbsent": true,
+  "explicitExtensionFlag": false,
+  "command": "tele",
+  "source": "auto",
+  "scope": "project",
+  "status": 0
+}
+```
+
+The delegate worktree also passed `npm test` with 18 tests, `npm run build`, `npm run verify:chat:probe`, and `npm run verify:browser`. The chat probe recorded zero provider requests and confirmed revoked suspended input cannot reach provider work. Browser checks covered production CLI updates, audio cancellation, keyboard interaction, reconnect, and desktop and mobile layouts. No paid model verification ran for the rename. These checks do not replace independent review or subjective listening.
+
 ## Verification artifacts
 
 `npm test` runs Node's test runner through the project-local `tsx` dependency. Tests use actual loopback HTTP services, temporary directories and CLI child processes.
