@@ -6,42 +6,14 @@ import { ZodError } from 'zod';
 import { openStore, demoId, StoreError } from './boards.js';
 import { defaultPublicDir } from './config.js';
 import { catalogueEntries } from './music.js';
-import { BoardIdSchema, ContentSchema, MAX_BODY_BYTES, RevisionSchema, demoContent, type Board } from './schema.js';
+import { BoardIdSchema, ContentSchema, MAX_BODY_BYTES, RevisionSchema, demoContent, type Board, type BoardId, type Content, type Revision } from './schema.js';
+import { createChatAccess } from './chat-server.js';
+import type { ChatAdapter } from './chat-schema.js';
+import { HttpError, json, readBody } from './http.js';
 
-class HttpError extends Error {
-  constructor(readonly status: number, message: string) { super(message); }
-}
-
-function json(response: ServerResponse, status: number, value: unknown) {
-  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  response.end(JSON.stringify(value));
-}
-
-function readBody(request: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks: Buffer[] = [];
-    let failed = false;
-    request.on('data', (chunk: Buffer) => {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        if (!failed) reject(new HttpError(413, `Body exceeds ${MAX_BODY_BYTES} bytes`));
-        failed = true;
-        chunks.length = 0;
-      } else if (!failed) chunks.push(chunk);
-    });
-    request.on('end', () => {
-      if (failed) return;
-      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-      catch { reject(new HttpError(400, 'Body must be valid JSON')); }
-    });
-    request.on('error', reject);
-    request.on('aborted', () => reject(new HttpError(400, 'Request aborted')));
-  });
-}
-
-export async function startServer(options: { dataDir: string; port?: number; publicDir?: string; seedDemo?: boolean }) {
+export async function startServer(options: { dataDir: string; port?: number; publicDir?: string; seedDemo?: boolean; chat?: ChatAdapter }) {
   const store = openStore(options.dataDir);
+  const chat = options.chat ? createChatAccess(options.chat) : undefined;
   const subscribers = new Map<string, Set<ServerResponse>>();
   const publicDir = options.publicDir ?? defaultPublicDir;
   let port = options.port ?? 4317;
@@ -49,6 +21,12 @@ export async function startServer(options: { dataDir: string; port?: number; pub
   const send = (peer: ServerResponse, board: Board) => {
     if (peer.writableLength > MAX_BODY_BYTES * 4) { peer.destroy(); return; }
     peer.write(`id: ${board.revision}\nevent: snapshot\ndata: ${JSON.stringify(board)}\n\n`);
+  };
+  const putBoard = (id: BoardId, expected: Revision, content: Content) => {
+    if (stopped) throw new HttpError(503, 'Server is stopping');
+    const board = store.put(id, expected, content);
+    for (const peer of subscribers.get(id) ?? []) send(peer, board);
+    return board;
   };
   const server = createServer((request, response) => {
     response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -86,6 +64,8 @@ export async function startServer(options: { dataDir: string; port?: number; pub
       && request.headers['sec-fetch-dest'] === 'document'
       && (url.pathname === '/' || boardPage);
     if (request.headers['sec-fetch-site'] === 'cross-site' && !documentNavigation) throw new HttpError(403, 'Cross-site request rejected');
+    if (method === 'GET' && url.pathname === '/api/capabilities') { json(response, 200, { chat: Boolean(chat) }); return; }
+    if (await chat?.handle(request, response, url)) return;
     if (method === 'GET' && url.pathname === '/') {
       response.writeHead(302, { Location: `/b/${demoId}`, 'Cache-Control': 'no-store' }); response.end(); return;
     }
@@ -107,8 +87,7 @@ export async function startServer(options: { dataDir: string; port?: number; pub
         if (Number(request.headers['content-length'] ?? 0) > MAX_BODY_BYTES) { request.resume(); throw new HttpError(413, `Body exceeds ${MAX_BODY_BYTES} bytes`); }
         const content = ContentSchema.parse(await readBody(request));
         if (stopped) throw new HttpError(503, 'Server is stopping');
-        const board = store.put(id, expected, content);
-        for (const peer of subscribers.get(id) ?? []) send(peer, board);
+        const board = putBoard(id, expected, content);
         response.setHeader('ETag', `"${board.revision}"`);
         json(response, expected === 0 ? 201 : 200, { ...board, url: `http://127.0.0.1:${port}/b/${id}` });
         return;
@@ -162,9 +141,13 @@ export async function startServer(options: { dataDir: string; port?: number; pub
     port,
     url: `http://127.0.0.1:${port}`,
     token: store.token,
+    getBoard: store.get,
+    putBoard,
+    inviteChat: () => chat?.invite(`http://127.0.0.1:${port}`),
     async stop() {
       if (stopped) return;
       stopped = true;
+      chat?.close();
       for (const peers of subscribers.values()) for (const peer of peers) peer.end();
       try {
         await new Promise<void>((resolve, reject) => {
