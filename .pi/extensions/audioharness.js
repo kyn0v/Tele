@@ -1,1 +1,1 @@
-export { default } from '../../dist/pi-extension.js';
+export { default } from '../../src/pi-extension.ts';
