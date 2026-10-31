@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { previewPi, root } from './pi-preview.mjs';
 
-const directory = await mkdtemp(join(tmpdir(), 'audioharness-chat-model-'));
-const model = process.env.AUDIOHARNESS_TEST_MODEL ?? 'github-copilot/gpt-6-luna';
+const directory = await mkdtemp(join(tmpdir(), 'tele-chat-model-'));
+const model = process.env.TELE_TEST_MODEL ?? 'github-copilot/gpt-6-luna';
 const pi = previewPi({ directory, model, persist: true });
 const output = `${root}.audit/chat`;
 let browser;
@@ -17,7 +17,7 @@ const models = new Set();
 pi.observe(event => {
   if (event.type === 'agent_start') prompts++;
   if (event.type === 'message_update' && event.assistantMessageEvent?.type === 'text_delta') deltas++;
-  if (event.type === 'tool_execution_start') { assert.equal(event.toolName, 'audioharness_board'); boardCalls++; }
+  if (event.type === 'tool_execution_start') { assert.equal(event.toolName, 'tele_board'); boardCalls++; }
   if (event.type === 'message_end' && event.message?.role === 'assistant') models.add(`${event.message.provider}/${event.message.model}`);
 });
 try {
@@ -40,9 +40,9 @@ try {
   assert.match(await page.locator('.chat-history').textContent(), /Copper Lantern/);
   assert.equal(await page.evaluate(() => document.cookie), '', 'Pair cookie is HttpOnly');
   const stored = await page.evaluate(() => Object.entries(localStorage));
-  assert(stored.every(([key]) => /audioharness\.chat\.(binding:|dock|collapsed)/.test(key)), 'Storage contains only approved nonsecret preferences/binding');
+  assert(stored.every(([key]) => /tele\.chat\.(binding:|dock|collapsed)/.test(key)), 'Storage contains only approved nonsecret preferences/binding');
   const anonymous = await browser.newContext();
-  const binding = await page.evaluate(() => localStorage.getItem('audioharness.chat.binding:preview'));
+  const binding = await page.evaluate(() => localStorage.getItem('tele.chat.binding:preview'));
   assert.equal((await anonymous.request.get(`${origin}/api/chat/${binding}`)).status(), 401);
   await anonymous.close();
   await page.screenshot({ path: join(output, 'history.png') });
@@ -89,7 +89,7 @@ try {
   assert(boardCalls >= 2, 'Actual model get and put tool calls');
   assert(await page.locator('#chat-input').evaluate(input => input === window.composerProof), 'Board update preserves composer identity');
   assert.equal(await page.locator('#chat-input').inputValue(), '', 'Observed input clears matching draft');
-  assert.match(await page.locator('.chat-history').textContent(), /audioharness_board · 完成/);
+  assert.match(await page.locator('.chat-history').textContent(), /tele_board · 完成/);
   const streamChanges = await page.evaluate(() => window.chatChanges.length);
   assert(streamChanges > 1, 'Browser observed multiple in-flight projection changes');
   await page.screenshot({ path: join(output, 'board-updated.png') });
@@ -122,13 +122,13 @@ try {
   const state = await pi.command('get_state');
   const persisted = await readFile(state.sessionFile, 'utf8');
   assert(persisted.includes('Copper Lantern'));
-  assert(persisted.includes('audioharness_board'));
+  assert(persisted.includes('tele_board'));
   assert(persisted.includes('expectedRevision'));
   assert(!persisted.includes('#chat='), 'Pairing secret never enters the Pi transcript');
   const declarations = persisted.split('\n').filter(Boolean).map(line => JSON.parse(line)).flatMap(entry => entry.message?.toolsAdded ?? []).map(tool => tool.name);
-  assert(declarations.every(name => name === 'audioharness_board'), 'Only reviewed board tool was declared to the model');
+  assert(declarations.every(name => name === 'tele_board'), 'Only reviewed board tool was declared to the model');
   assert.equal(prompts, 3);
-  await pi.command('prompt', { message: '/audioharness off' });
+  await pi.command('prompt', { message: '/tele off' });
   await assert.rejects(fetch(`${origin}/api/capabilities`));
   assert.equal((await pi.command('get_state')).isStreaming, false);
   assert.deepEqual(errors, []);

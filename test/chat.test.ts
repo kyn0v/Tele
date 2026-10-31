@@ -31,7 +31,7 @@ test('admission reserves once, binds IDs to content, handles busy/pending/stale 
   const { chat, ctx, calls, send, setIdle, setPending } = runtime();
   setIdle(false); assert.throws(() => chat.submit(send()), /busy/); setIdle(true);
   setPending(true); assert.throws(() => chat.submit(send()), /busy/); setPending(false);
-  assert.throws(() => chat.submit(send('/audioharness off')), /not slash/);
+  assert.throws(() => chat.submit(send('/tele off')), /not slash/);
   const command = send(); const receipt = chat.submit(command);
   assert.equal(receipt.status, 'submitted');
   assert.equal(chat.snapshot().runId, null, 'A send reservation is not an abortable run');
@@ -116,7 +116,7 @@ function adapter() {
 }
 
 test('real private HTTP requires one-use invitation, scoped cookie, same Origin and current epoch', async t => {
-  const directory = await mkdtemp(join(tmpdir(), 'audioharness-chat-api-'));
+  const directory = await mkdtemp(join(tmpdir(), 'tele-chat-api-'));
   const { chat, view, publish } = adapter();
   const service = await startServer({ dataDir: directory, port: 0, chat });
   t.after(async () => { await service.stop(); await rm(directory, { recursive: true, force: true }); });

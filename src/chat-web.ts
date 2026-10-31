@@ -24,7 +24,7 @@ export function mountChat(boardId: BoardId) {
   for (const [value, text] of [['right', '右侧'], ['left', '左侧'], ['bottom', '底部']]) {
     const option = node('option', '', text); option.value = value ?? ''; dock.append(option);
   }
-  const preference = stored('audioharness.chat.dock');
+  const preference = stored('tele.chat.dock');
   dock.value = preference === 'left' || preference === 'bottom' ? preference : 'right';
   dockLabel.append(dock); controls.append(dockLabel);
   const status = node('p', 'chat-status'); status.setAttribute('role', 'status');
@@ -42,7 +42,7 @@ export function mountChat(boardId: BoardId) {
   const feedback = node('p', 'chat-feedback'); feedback.setAttribute('role', 'status');
   body.append(label, controls, status, limitation, truncated, historyNode, form, feedback, retry);
   panel.append(header, body); document.body.append(panel);
-  let collapsed = stored('audioharness.chat.collapsed') === 'true';
+  let collapsed = stored('tele.chat.collapsed') === 'true';
   function layout() {
     document.body.dataset.chatDock = dock.value;
     document.body.dataset.chatCollapsed = String(collapsed);
@@ -50,8 +50,8 @@ export function mountChat(boardId: BoardId) {
     collapse.textContent = collapsed ? '展开对话' : '收起';
     collapse.setAttribute('aria-expanded', String(!collapsed));
   }
-  dock.addEventListener('change', () => { save('audioharness.chat.dock', dock.value); layout(); });
-  collapse.addEventListener('click', () => { collapsed = !collapsed; save('audioharness.chat.collapsed', String(collapsed)); layout(); });
+  dock.addEventListener('change', () => { save('tele.chat.dock', dock.value); layout(); });
+  collapse.addEventListener('click', () => { collapsed = !collapsed; save('tele.chat.collapsed', String(collapsed)); layout(); });
   layout();
   let binding: Binding | undefined;
   let view: ChatView | undefined;
@@ -60,7 +60,7 @@ export function mountChat(boardId: BoardId) {
   let pending: { id: string; text: string } | undefined;
   let awaitingReceipt = false;
   let connectionGeneration = 0;
-  const bindingKey = `audioharness.chat.binding:${boardId}`;
+  const bindingKey = `tele.chat.binding:${boardId}`;
   const titles = { idle: '可以继续对话', submitted: '已提交，等待 Pi 确认', busy: 'Pi 正在回复', stopping: '正在等待停止', 'terminal-required': '需要终端操作，浏览器不能代为确认', uncertain: '提交结果不确定，请检查终端', disconnected: 'Pi 已断开' };
   function buttons() {
     send.disabled = !connected || view?.phase !== 'idle' || Boolean(pending) || awaitingReceipt || !input.value.trim();
@@ -100,7 +100,7 @@ export function mountChat(boardId: BoardId) {
     const generation = ++connectionGeneration;
     events?.close(); connected = false; buttons();
     if (!binding) {
-      status.textContent = '未连接。请在已加载扩展且空闲的 Pi 中运行 /audioharness ' + boardId + '，使用一次性链接配对。独立服务只提供白板。';
+      status.textContent = '未连接。请在已加载扩展且空闲的 Pi 中运行 /tele ' + boardId + '，使用一次性链接配对。独立服务只提供白板。';
       return;
     }
     const base = `/api/chat/${binding}`;

@@ -105,7 +105,7 @@ function render(next: Board) {
   const oldRevision = board?.revision;
   stopPlayback();
   board = next;
-  document.title = `${next.content.title} · AudioHarness`;
+  document.title = `${next.content.title} · Tele`;
   title.textContent = next.content.title;
   description.textContent = next.content.description ?? '';
   description.hidden = !next.content.description;

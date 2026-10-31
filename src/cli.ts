@@ -9,7 +9,7 @@ const usage = `Usage:
   npm run board -- put <id> --expect <revision> --file <content.json> [--open]
   npm run board -- get <id>
   npm run board -- catalogue
-Set AUDIOHARNESS_DATA and AUDIOHARNESS_PORT for a non-default server.`;
+Set TELE_DATA and TELE_PORT for a non-default server.`;
 const PutResultSchema = BoardSchema.extend({ url: z.url() });
 
 function openBrowser(url: string) {

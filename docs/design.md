@@ -1,8 +1,8 @@
-# AudioHarness POC design
+# Tele board POC design
 
 ## Problem
 
-An existing agent needs to turn a music-theory explanation into ordered guitar diagrams that the user can hear, and update that same browser page on later turns. The target is a new local repository. TwoMoons is a reference for controlled guitar diagrams and pitch-based browser playback, not an agent integration to import.
+Tele is A Harness for Musical Interaction. It provides visual, audible, interactive music components and operation interfaces for large language models. Music theory is one class of use cases. This board POC lets an existing agent turn an explanation into ordered guitar diagrams that the user can hear, then update the same browser page on later turns. [TwoMoons](https://github.com/moayuisuda/two-moons), licensed GPL-3.0, is a product reference for guitar diagrams and pitch-based browser playback. Tele imports or copies none of its source or samples.
 
 ## Usage
 

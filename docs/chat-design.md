@@ -12,21 +12,25 @@ The extension reads original active-branch entries with ctx.sessionManager.getBr
 
 ## Caller experience
 
-Build the project, load its project-local extension in the existing trusted Pi, then activate while idle:
+Install dependencies and build browser assets, load the project-local extension in the existing trusted Pi, then activate while idle:
 
 ```sh
-npm install
+npm ci
 npm run build
-# In the already-running trusted Pi, after active work finishes:
-/reload
-/audioharness conversation
 ```
 
-A command is not a shell command. The README must distinguish these steps. Explicit loading on a new Pi launch is also supported with `pi -e /absolute/AudioHarness/dist/pi-extension.js`, but must not open an active CLI session file in another writer. No global Pi configuration is changed by the feature.
+In the already-running trusted Pi, after active work finishes:
 
-The extension lazily starts the existing AudioHarness HTTP server in the same process and associates one board with its current Pi session. If the standalone server already owns that data directory/port, show a clear handover instruction; never kill an unknown process. One-time handover avoids a relay protocol. The activation command opens a short-lived, single-use pairing URL without putting secrets into model-visible messages. Browser refresh may retain its scoped authentication, but unauthenticated ordinary board URLs never reveal chat history.
+```text
+/reload
+/tele conversation
+```
 
-`/audioharness off` revokes browser control and releases extension-owned resources, without killing Pi or deleting history. Session replacement and runtime shutdown invalidate the binding. Reconnection must be explicit after a different session is selected, not silently expose the new session under an old grant.
+The Pi commands are not shell commands. Explicit loading on a new Pi launch is also supported with `pi -e /absolute/path/Tele/.pi/extensions/tele.js`, or `pi -e /absolute/path/Tele/dist/pi-extension.js` after a build. Do not open an active CLI session file in another writer. No global Pi configuration is changed by the feature.
+
+The extension lazily starts the existing Tele HTTP server in the same process and associates one board with its current Pi session. If the standalone server already owns that data directory/port, show a clear handover instruction; never kill an unknown process. One-time handover avoids a relay protocol. The activation command opens a short-lived, single-use pairing URL without putting secrets into model-visible messages. Browser refresh may retain its scoped authentication, but unauthenticated ordinary board URLs never reveal chat history.
+
+`/tele off` revokes browser control and releases extension-owned resources, without killing Pi or deleting history. Session replacement and runtime shutdown invalidate the binding. Reconnection must be explicit after a different session is selected, not silently expose the new session under an old grant.
 
 ## Ownership and shape
 
@@ -95,15 +99,15 @@ Scores (continuity/usability/security/lifecycle/simplicity/proof, each0–2): on
 
 The implementation follows this shape. `src/pi-chat.ts` owns the run and submission state, while `src/chat-history.ts` owns bounded Pi projection. `src/http.ts` shares the existing bounded JSON reader with the private adapter. The server exposes `getBoard` and one commit-and-publish `putBoard` path to the extension, so tool edits and HTTP edits use the same revision and SSE behavior.
 
-The project discovery wrapper is `.pi/extensions/audioharness.js`, not a TypeScript wrapper. It imports only the built extension. Pi and TypeBox are host peers with pinned development copies; shipped code has no absolute global imports. The extension adds per-process port and data flags for isolated use and verification.
+The project discovery wrapper is `.pi/extensions/tele.js`. It imports `src/pi-extension.ts` through Pi's TypeScript loader, so a checkout with dependencies can load the extension without generated `dist` files. Browser assets still require a build. The built `dist/pi-extension.js` remains an explicit `-e` entrypoint after building. Use one entrypoint per process. Pi and TypeBox are host peers with pinned development copies; shipped code has no absolute global imports. The extension adds `--tele-port` and `--tele-data` for isolated use and verification.
 
 The command schema adds `idleVersion` to reject delayed sends after intervening runs. Its bounded request ledger retains every accepted ID for the connection rather than evicting IDs that could be replayed. Unknown void submissions require terminal inspection; they are never automatically resubmitted. Actual final branch entries recheck a provisional message observation. Abort IDs are created only on actual `agent_start` events and change at each such boundary, rather than treating a send reservation as an abortable run.
 
-A real no-model probe also exercises an input suspended inside another extension after Pi reports idle. A process-local `AsyncLocalStorage` dispatch marker survives reload and is revoked on detach. A late revoked submission is aborted before provider work, and its tool calls remain blocked even after the terminal loadout has been restored. This marker is not a prompt token or a persisted transcript.
+A real no-model probe also exercises an input suspended inside another extension after Pi reports idle. A process-local `AsyncLocalStorage` dispatch marker survives reload and is revoked on detach. A late revoked submission is aborted before provider work, and its tool calls remain blocked even after the terminal loadout has been restored. The private global registry key `__audioharnessDispatchV1` intentionally retains its identity across the Tele rename. Changing it during a live Pi reload would lose cancellation of old suspended input. It is not a public API alias, a prompt token, or a persisted transcript.
 
 Pi may populate optional tool fields even for a read action. The bound tool therefore accepts declared write fields on `get` and `catalogue`, then discards those unused fields. The `put` branch retains strict content and revision validation. A real model run exposed this incompatibility, and the suite now includes that input shape.
 
-The single tool name is `audioharness_board`, with no namespace and `model-only` exposure. Both declarations and the tool-call gate restrict attached runs. Terminal text remains available. Branch navigation revokes the binding as well as session replacement, avoiding silent changes in the selected history. `off` revokes access immediately, then waits for safe settlement before restoring the previous tool set.
+The single tool name is `tele_board`, with no namespace and `model-only` exposure. Both declarations and the tool-call gate restrict attached runs. Terminal text remains available. Branch navigation revokes the binding as well as session replacement, avoiding silent changes in the selected history. `off` revokes access immediately, then waits for safe settlement before restoring the previous tool set.
 
 Desktop docking, mobile bottom layout, collapse state, draft preservation and container-aware chords are implemented without a framework. Only nonsecret binding identity and layout preferences are stored. Drafts are not persisted through page reload. [The reference](chat-reference.md) records exact limits and failure behavior.
 

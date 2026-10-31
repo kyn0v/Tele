@@ -1,6 +1,6 @@
 # Third-party notices
 
-AudioHarness uses these npm packages. Exact resolved versions and dependency trees are recorded in `package-lock.json`; each installed package includes its license text.
+Tele uses these npm packages. Exact resolved versions and dependency trees are recorded in `package-lock.json`; each installed package includes its license text.
 
 | Package | Use | License |
 | --- | --- | --- |
@@ -13,4 +13,6 @@ AudioHarness uses these npm packages. Exact resolved versions and dependency tre
 | @earendil-works/pi-coding-agent | Host API types and disposable Pi verification runtime | MIT |
 | typebox | Host-provided Pi tool parameter schemas | MIT |
 
-TwoMoons is a product reference for connecting guitar fingering diagrams with browser playback. Its source checkout was read for grounding. Its README and LICENSE identify GPL-3.0. AudioHarness imports no TwoMoons code, audio samples, images or fonts. The UI, SVG diagrams and Web Audio synthesis in this repository are independent implementations.
+[TwoMoons](https://github.com/moayuisuda/two-moons) is the original upstream product reference for connecting guitar fingering diagrams with browser playback. It is licensed GPL-3.0. The local reference checkout was the [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork. Tele uses it only as a reference and imports or copies none of its source, audio samples, images, or fonts. The UI, SVG diagrams, and Web Audio synthesis in this repository are independent implementations.
+
+These notices describe third-party dependencies and references. They do not assign a license to Tele's source. This repository currently has no Tele source license and retains `private: true` in `package.json` to prevent npm publication.

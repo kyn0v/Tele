@@ -14,10 +14,10 @@ type BrowserDispatch = { revoked: boolean };
 declare global {
   var __audioharnessDispatchV1: AsyncLocalStorage<BrowserDispatch> | undefined;
 }
-// A reload must still recognize a browser input suspended inside another extension's hook.
+// Keep this private registry key across renames so reload can revoke old suspended browser input.
 const dispatchScope = globalThis.__audioharnessDispatchV1 ??= new AsyncLocalStorage<BrowserDispatch>();
 
-export const BOARD_TOOL = 'audioharness_board';
+export const BOARD_TOOL = 'tele_board';
 const parameters = Type.Object({
   action: Type.Union([Type.Literal('catalogue'), Type.Literal('get'), Type.Literal('put')]),
   expectedRevision: Type.Optional(Type.Integer({ minimum: 0 })),
@@ -31,13 +31,13 @@ const ReadSchema = z.strictObject({
 }).transform(({ action }) => ({ action }));
 export const BoardCommandSchema = z.union([PutSchema, ReadSchema]);
 
-export default function audioharness(pi: ExtensionAPI) {
+export default function tele(pi: ExtensionAPI) {
   let owned: { chat: PiChat; service: Awaited<ReturnType<typeof startServer>>; tools: string[]; dispatch: BrowserDispatch } | undefined;
   let changing = false;
   let generation = 0;
   let detaching = false;
-  pi.registerFlag('audioharness-port', { description: 'AudioHarness loopback port (0 selects a free port)', type: 'string' });
-  pi.registerFlag('audioharness-data', { description: 'AudioHarness board data directory', type: 'string' });
+  pi.registerFlag('tele-port', { description: 'Tele loopback port (0 selects a free port)', type: 'string' });
+  pi.registerFlag('tele-data', { description: 'Tele board data directory', type: 'string' });
 
   async function detach(ctx: ExtensionContext, wait?: () => Promise<void>) {
     generation++;
@@ -51,16 +51,16 @@ export default function audioharness(pi: ExtensionAPI) {
     if (owned !== current) return;
     pi.setActiveTools(current.tools);
     owned = undefined; detaching = false;
-    ctx.ui.setStatus('audioharness', undefined);
+    ctx.ui.setStatus('tele', undefined);
   }
   pi.registerTool({
-    name: BOARD_TOOL, label: 'AudioHarness board',
+    name: BOARD_TOOL, label: 'Tele board',
     description: 'Read the chord catalogue or get/replace the attached music board. No other board is accessible. For put, first get its revision and pass expectedRevision plus the complete content. Never edit application files.',
     exposure: 'model-only',
     annotations: { destructiveHint: true, openWorldHint: false, idempotentHint: false },
     parameters,
     async execute(_id, input) {
-      if (!owned || detaching) throw new Error('AudioHarness is not attached');
+      if (!owned || detaching) throw new Error('Tele is not attached');
       const command = BoardCommandSchema.parse(input);
       const { service, chat } = owned;
       const result = command.action === 'put' ? service.putBoard(chat.boardId, command.expectedRevision, command.content)
@@ -75,14 +75,14 @@ export default function audioharness(pi: ExtensionAPI) {
   });
   pi.on('tool_call', event => {
     if (dispatchScope.getStore()?.revoked) return { block: true, reason: 'This browser submission was detached before it could finish.' };
-    if ((owned && (detaching || event.toolName !== BOARD_TOOL)) || (!owned && event.toolName === BOARD_TOOL)) return { block: true, reason: 'AudioHarness music mode allows only its attached board tool. Use /audioharness off in Pi to restore the previous tools.' };
+    if ((owned && (detaching || event.toolName !== BOARD_TOOL)) || (!owned && event.toolName === BOARD_TOOL)) return { block: true, reason: 'Tele music mode allows only its attached board tool. Use /tele off in Pi to restore the previous tools.' };
   });
   pi.on('before_agent_start', (event, ctx) => {
     if (dispatchScope.getStore()?.revoked) { ctx.abort(); return; }
     if (!owned || detaching) return;
     pi.setActiveTools([BOARD_TOOL]);
     event.systemPromptOptions.selectedTools = [BOARD_TOOL];
-    event.systemPromptOptions.promptGuidelines.push('AudioHarness music mode is active. Discuss music and use audioharness_board to update the attached listening board. Do not rewrite application source. Board edits are public on this local service; do not copy private conversation into the board without user intent.');
+    event.systemPromptOptions.promptGuidelines.push('Tele music mode is active. Discuss music and use tele_board to update the attached listening board. Do not rewrite application source. Board edits are public on this local service; do not copy private conversation into the board without user intent.');
   });
   pi.on('agent_start', (_event, ctx) => owned?.chat.started(ctx));
   pi.on('message_start', event => owned?.chat.message(event.message, true));
@@ -97,24 +97,24 @@ export default function audioharness(pi: ExtensionAPI) {
   pi.on('session_tree', async (_event, ctx) => { await detach(ctx); });
   pi.on('session_shutdown', async (_event, ctx) => { await detach(ctx); });
 
-  pi.registerCommand('audioharness', {
+  pi.registerCommand('tele', {
     description: 'Attach this live Pi to a music board, or off to detach and restore tools',
     handler: async (args, ctx) => {
-      if (changing) { ctx.ui.notify('AudioHarness 正在切换，请稍后重试。', 'warning'); return; }
+      if (changing) { ctx.ui.notify('Tele 正在切换，请稍后重试。', 'warning'); return; }
       changing = true;
       try {
         if (args.trim() === 'off') {
           await detach(ctx, () => ctx.waitForIdle());
-          ctx.ui.notify('AudioHarness 已断开。Pi 仍在运行，原工具已恢复。', 'info'); return;
+          ctx.ui.notify('Tele 已断开。Pi 仍在运行，原工具已恢复。', 'info'); return;
         }
         const parsed = BoardIdSchema.safeParse(args.trim());
-        if (!parsed.success) { ctx.ui.notify('用法：/audioharness <boardid> 或 /audioharness off', 'warning'); return; }
+        if (!parsed.success) { ctx.ui.notify('用法：/tele <boardid> 或 /tele off', 'warning'); return; }
         if (!ctx.isIdle() || ctx.hasPendingMessages()) { ctx.ui.notify('请等待 Pi 空闲且待处理消息清空后连接。', 'warning'); return; }
-        if (owned) { ctx.ui.notify('已经连接。请先 /audioharness off，再显式连接以重新配对。', 'warning'); return; }
+        if (owned) { ctx.ui.notify('已经连接。请先 /tele off，再显式连接以重新配对。', 'warning'); return; }
         const currentGeneration = ++generation;
         const config = configuration();
-        const port = z.coerce.number().int().min(0).max(65535).parse(pi.getFlag('audioharness-port') ?? config.port);
-        const dataFlag = pi.getFlag('audioharness-data');
+        const port = z.coerce.number().int().min(0).max(65535).parse(pi.getFlag('tele-port') ?? config.port);
+        const dataFlag = pi.getFlag('tele-data');
         const dataDir = typeof dataFlag === 'string' ? resolve(dataFlag) : config.dataDir;
         const dispatch: BrowserDispatch = { revoked: false };
         const chat = new PiChat(parsed.data, ctx, {
@@ -129,11 +129,11 @@ export default function audioharness(pi: ExtensionAPI) {
         owned = { chat, service, tools, dispatch };
         if (!service.getBoard(parsed.data)) service.putBoard(parsed.data, RevisionSchema.parse(0), demoContent);
         pi.setActiveTools([BOARD_TOOL]);
-        if (!pi.getActiveTools().includes(BOARD_TOOL)) throw new Error('Tool allowlist excludes audioharness_board');
-        ctx.ui.setStatus('audioharness', `音乐模式 · ${parsed.data} · /audioharness off 恢复工具`);
+        if (!pi.getActiveTools().includes(BOARD_TOOL)) throw new Error('Tool allowlist excludes tele_board');
+        ctx.ui.setStatus('tele', `音乐模式 · ${parsed.data} · /tele off 恢复工具`);
         const invitation = service.inviteChat();
         if (!invitation) throw new Error('Missing invitation');
-        ctx.ui.notify(`AudioHarness 已连接当前 Pi。临时只允许白板工具。终端确认框仍需终端操作。两分钟内打开以下一次性私有链接（不要分享）：\n${invitation}`, 'info');
+        ctx.ui.notify(`Tele 已连接当前 Pi。临时只允许白板工具。终端确认框仍需终端操作。两分钟内打开以下一次性私有链接（不要分享）：\n${invitation}`, 'info');
         if (ctx.mode === 'tui') {
           const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'rundll32' : 'xdg-open';
           const open = spawn(command, process.platform === 'win32' ? ['url.dll,FileProtocolHandler', invitation] : [invitation], { stdio: 'ignore', detached: true });
@@ -142,7 +142,7 @@ export default function audioharness(pi: ExtensionAPI) {
         }
       } catch {
         await detach(ctx);
-        ctx.ui.notify('AudioHarness 启动失败。请检查数据目录、构建产物和端口，并确认 --tools 包含 audioharness_board。若独立服务占用它们，请由其所有者先停止服务，再连接；不会自动终止其他进程。', 'error');
+        ctx.ui.notify('Tele 启动失败。请检查数据目录、浏览器构建产物和端口，并确认 --tools 包含 tele_board。若独立服务占用它们，请由其所有者先停止服务，再连接；不会自动终止其他进程。', 'error');
       } finally { changing = false; }
     },
   });

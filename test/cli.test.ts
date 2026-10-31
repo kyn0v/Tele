@@ -17,11 +17,11 @@ const major = fileURLToPath(new URL('../examples/major.json', import.meta.url));
 const comparison = fileURLToPath(new URL('../examples/comparison.json', import.meta.url));
 
 test('CLI uses the real HTTP service from a different cwd, updates one URL and reports conflicts', async t => {
-  const dataDir = await mkdtemp(join(tmpdir(), 'audioharness-cli-'));
+  const dataDir = await mkdtemp(join(tmpdir(), 'tele-cli-'));
   const server = await startServer({ dataDir, port: 0 });
   t.after(async () => { await server.stop(); await rm(dataDir, { recursive: true, force: true }); });
   const run = (...args: string[]) => exec(process.execPath, ['--import', import.meta.resolve('tsx'), cli, ...args], {
-    cwd: tmpdir(), env: { ...process.env, AUDIOHARNESS_DATA: dataDir, AUDIOHARNESS_PORT: String(server.port) },
+    cwd: tmpdir(), env: { ...process.env, TELE_DATA: dataDir, TELE_PORT: String(server.port) },
   });
   const created = PutResultSchema.parse(JSON.parse((await run('put', 'harmony', '--expect', '0', '--file', major)).stdout));
   assert.equal(created.id, 'harmony'); assert.equal(created.revision, 1);

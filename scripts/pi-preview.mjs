@@ -4,10 +4,10 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 export const root = fileURLToPath(new URL('../', import.meta.url));
-export function previewPi({ directory, model, extensions = [], persist = false, tools = model ? 'audioharness_board' : 'read,audioharness_board', offline = false }) {
+export function previewPi({ directory, model, extensions = [], persist = false, tools = model ? 'tele_board' : 'read,tele_board', offline = false }) {
   const args = [fileURLToPath(new URL('../node_modules/@earendil-works/pi-coding-agent/dist/cli.js', import.meta.url)),
     '--mode', 'rpc', '--no-extensions', '--no-skills', '--no-prompt-templates', '--no-context-files', '--no-mcp', '--no-themes',
-    '--tools', tools, '-e', `${root}dist/pi-extension.js`, '--audioharness-port', '0', '--audioharness-data', `${directory}/boards`,
+    '--tools', tools, '-e', `${root}dist/pi-extension.js`, '--tele-port', '0', '--tele-data', `${directory}/boards`,
     ...(persist ? ['--session-dir', `${directory}/sessions`] : ['--no-session']),
     ...(model ? ['--model', model, '--thinking', 'low'] : []),
     ...(offline || !model ? ['--offline'] : []),
@@ -53,7 +53,7 @@ export function previewPi({ directory, model, extensions = [], persist = false, 
     observe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
     async attach(board = 'preview') {
       const invitation = wait(record => record.type === 'extension_ui_request' && record.method === 'notify' && record.message?.includes('#chat='));
-      await command('prompt', { message: `/audioharness ${board}` });
+      await command('prompt', { message: `/tele ${board}` });
       const notice = await invitation;
       const url = notice.message.match(/http:\/\/127\.0\.0\.1:\d+\/b\/[^\s]+/u)?.[0];
       if (!url) throw new Error('No pairing invitation');

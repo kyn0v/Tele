@@ -1,10 +1,14 @@
-# AudioHarness
+# Tele
 
-让任何能运行命令的 agent，把和声讲解变成浏览器里的吉他和弦白板。你点击和弦听声音，agent 在后续对话中更新同一个页面。
+A Harness for Musical Interaction.
+
+为大模型提供可视、可听、可交互的音乐组件与操作接口。
+
+当前 POC 提供吉他和弦白板与同一 Pi 会话中的对话面板。Agent 可以创建并更新白板，你可以点击和弦听声音。乐理讲解是其中一类用例，不是 Tele 的全部范围。
 
 ## 在白板旁继续当前 Pi 对话
 
-需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。先在 shell 中构建，不要同时启动独立服务：
+需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。先在 shell 中安装依赖并构建浏览器资源，不要同时启动独立服务：
 
 ```sh
 npm ci
@@ -15,20 +19,22 @@ npm run build
 
 ```text
 /reload
-/audioharness harmony
+/tele harmony
 ```
 
-项目的 `.pi/extensions/audioharness.js` 会加载构建产物。连接命令打开一次性私有链接，两分钟内完成配对。页面显示当前 Pi 分支的旧对话；你可以发送后续问题、看流式回复，并让 agent 更新眼前的同一块白板。
+项目的 `.pi/extensions/tele.js` 通过 Pi 的 TypeScript 加载器导入 `src/pi-extension.ts`。安装依赖后即可加载扩展，不依赖 `dist`；打开白板仍需先构建浏览器资源。连接命令打开一次性私有链接，两分钟内完成配对。页面显示当前 Pi 分支的旧对话；你可以发送后续问题、看流式回复，并让 agent 更新眼前的同一块白板。
 
-如果从别的目录启动一个新的 Pi，可显式加载扩展。不要同时通过项目发现和 `-e` 重复加载，也不要让第二个 Pi 打开仍被使用的会话文件。
+如果从别的目录启动一个新的 Pi，可显式加载源码入口。不要同时通过项目发现和 `-e` 重复加载，也不要让第二个 Pi 打开仍被使用的会话文件。
 
 ```sh
-pi -e /absolute/path/AudioHarness/dist/pi-extension.js
+pi -e /absolute/path/Tele/.pi/extensions/tele.js
 ```
 
-如果该 Pi 使用 `--tools` 白名单，必须包含 `audioharness_board`。这会启动新的 Pi；它不是附着到另一个已经运行的 CLI。要继续原来的活跃会话，请使用原 Pi 中的项目扩展与 `/reload` 路径。
+构建后也支持 `pi -e /absolute/path/Tele/dist/pi-extension.js`。
 
-连接期间临时只开放白板工具，状态栏和面板都会标明。其他扩展的确认框仍需回终端处理，浏览器不会替你批准。在 Pi 中执行 `/audioharness off` 可撤销连接、停止扩展拥有的服务，并在运行结束后恢复原工具；Pi 本身不会退出。
+如果该 Pi 使用 `--tools` 白名单，必须包含 `tele_board`。这会启动新的 Pi；它不是附着到另一个已经运行的 CLI。要继续原来的活跃会话，请使用原 Pi 中的项目扩展与 `/reload` 路径。
+
+连接期间临时只开放白板工具，状态栏和面板都会标明。其他扩展的确认框仍需回终端处理，浏览器不会替你批准。在 Pi 中执行 `/tele off` 可撤销连接、停止扩展拥有的服务，并在运行结束后恢复原工具；Pi 本身不会退出。
 
 面板默认在右侧，可以切到左侧或底部，也可以收起。位置、折叠状态会保存，草稿只留在当前页面。Enter 发送，Shift+Enter 换行。手机使用底部面板，不改写桌面偏好。
 
@@ -82,8 +88,8 @@ npm run board -- put cadence --expect 0 --file examples/cadence.json --open
 服务和 CLI 使用相同的环境变量。默认数据目录是本项目的 `.data`，不取决于当前工作目录。自定义目录建议使用绝对路径。
 
 ```sh
-AUDIOHARNESS_DATA=/tmp/my-audioharness AUDIOHARNESS_PORT=4320 npm start
-AUDIOHARNESS_DATA=/tmp/my-audioharness AUDIOHARNESS_PORT=4320 npm run board -- get demo
+TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm start
+TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm run board -- get demo
 ```
 
 同一数据目录只允许一个服务，即使端口不同。崩溃后保留的 `server.lock` 会使启动失败。先查看其中的 `owner.json` 并确认旧进程已退出，再手动移除该锁目录。服务不自动猜测锁是否过期。
@@ -92,6 +98,8 @@ AUDIOHARNESS_DATA=/tmp/my-audioharness AUDIOHARNESS_PORT=4320 npm run board -- g
 
 ```sh
 npm test
+# 在尚未构建、没有 dist 的 checkout 中检查项目扩展发现：
+npm run verify:extension
 npm run build
 npx playwright install chromium --only-shell
 npm run verify:browser
@@ -102,6 +110,8 @@ npm run verify:chat:browser
 
 `npm test` 使用真实 HTTP 服务和临时目录，覆盖乐理数据、校验、冲突、持久化、目录锁、SSE 和 CLI。它不等于浏览器验证。
 
+`verify:extension` 在没有 `dist` 的 checkout 中启动离线、无会话的 Pi，使用临时配置和数据目录。它不传 `-e`，检查 Pi 自动发现 `.pi/extensions/tele.js` 并注册 `/tele`，不发送模型输入。已构建的目录不能运行这个检查；请使用安装了依赖的新 checkout。
+
 `verify:browser` 启动生产构建，用生产 CLI 创建和更新页面。它检查来自其他站点的链接导航、单和弦及整组自然结束后的状态、更新与停止后的提示保留、无自动播放、SVG 图标响应、焦点、键盘、连接恢复及桌面和手机布局。
 
 脚本挂起真实音频上下文，等待超过原定结束时间，更新白板后恢复渲染，并检查没有旧白板的 PCM 输出。离线渲染另行确认挂起时停止不会在恢复后泄漏尾音。脚本还从 `/assets/audio.js` 导入生产合成函数，在 `OfflineAudioContext` 中生成 D 和 Gm 的音频，检查有限、非零且不削波的样本。
@@ -110,10 +120,14 @@ npm run verify:chat:browser
 
 这些检查不代表主观试听。要判断听感，打开白板并通过你的扬声器或耳机实际聆听。
 
-## POC 边界与参考
+## POC 边界
 
 只支持本机、标准六弦调弦、固定和弦库及完整文档替换。声音是原创 Web Audio 合成拨弦，不是真实吉他录音。没有变调夹、自定义调弦、和弦编辑器、节奏编排、云端账号或 MCP 插件。
 
 [接口与限制](docs/reference.md) 记录精确的字段、容量、安全边界和持久化保证。[白板设计](docs/design.md) 和 [对话设计](docs/chat-design.md) 记录已选方案。
 
-TwoMoons 启发了「将吉他指法与可播放音高关联」这一产品方向。参考项目的 README 与 LICENSE 标明 GPL-3.0。本项目没有复制其代码、样本或其他素材。HTML、CSS、指板绘制与合成实现均为本项目原创。依赖及许可证说明见 [第三方说明](THIRD_PARTY_NOTICES.md)。本仓库目前不授予额外的源码再分发许可证。
+## References
+
+[TwoMoons](https://github.com/moayuisuda/two-moons) 是「将吉他指法与可播放音高关联」的产品参考。原始上游采用 GPL-3.0。本地参考 checkout 是 [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork，主要归属仍为原始上游。Tele 仅将其作为参考，没有导入或复制其源码、音频样本或其他素材。HTML、CSS、指板绘制与合成实现均为本项目原创。
+
+依赖及许可证说明见 [第三方说明](THIRD_PARTY_NOTICES.md)。本仓库目前没有为 Tele 源码指定许可证。`package.json` 保留 `private: true`，不发布到 npm。

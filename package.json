@@ -1,5 +1,5 @@
 {
-  "name": "audioharness",
+  "name": "tele",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,6 +11,7 @@
     "start": "node dist/main.js",
     "board": "node dist/cli.js",
     "test": "tsx --test test/*.test.ts",
+    "verify:extension": "node scripts/verify-project-extension.mjs",
     "verify:browser": "node scripts/verify-browser.mjs",
     "verify:chat:probe": "node scripts/verify-chat-probe.mjs",
     "verify:chat:browser": "node scripts/verify-chat-browser.mjs"

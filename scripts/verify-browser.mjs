@@ -12,7 +12,7 @@ import { chromium } from 'playwright';
 
 const exec = promisify(execFile);
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dataDir = await mkdtemp(join(tmpdir(), 'audioharness-browser-'));
+const dataDir = await mkdtemp(join(tmpdir(), 'tele-browser-'));
 const output = join(root, '.audit', 'browser');
 await mkdir(output, { recursive: true });
 const reservation = createServer();
@@ -22,7 +22,7 @@ const address = reservation.address();
 assert(address && typeof address !== 'string');
 const port = address.port;
 await new Promise(resolve => reservation.close(resolve));
-const env = { ...process.env, AUDIOHARNESS_DATA: dataDir, AUDIOHARNESS_PORT: String(port) };
+const env = { ...process.env, TELE_DATA: dataDir, TELE_PORT: String(port) };
 let child;
 let browser;
 let chat;

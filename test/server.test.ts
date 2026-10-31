@@ -9,7 +9,7 @@ import { BoardSchema, MAX_BODY_BYTES } from '../src/schema.js';
 
 const content = { title: 'Teaching example', groups: [{ id: 'major', title: '大四级', chords: ['D', 'G', 'D'] }] };
 async function fixture(t: { after: (fn: () => Promise<void>) => void }) {
-  const dataDir = await mkdtemp(join(tmpdir(), 'audioharness-test-'));
+  const dataDir = await mkdtemp(join(tmpdir(), 'tele-test-'));
   const server = await startServer({ dataDir, port: 0 });
   t.after(async () => { await server.stop(); await rm(dataDir, { recursive: true, force: true }); });
   const put = (id: string, revision: number, body: unknown = content, headers: Record<string, string> = {}) => fetch(`${server.url}/api/boards/${id}`, {
@@ -196,7 +196,7 @@ test('corrupt persisted data fails explicitly and releases startup lock', async 
 
 test('failed port bind releases the new data directory lock', async t => {
   const { server } = await fixture(t);
-  const dataDir = await mkdtemp(join(tmpdir(), 'audioharness-bind-'));
+  const dataDir = await mkdtemp(join(tmpdir(), 'tele-bind-'));
   t.after(() => rm(dataDir, { recursive: true, force: true }));
   await assert.rejects(startServer({ dataDir, port: server.port }), /EADDRINUSE/);
   const recovered = await startServer({ dataDir, port: 0 });

@@ -2,17 +2,17 @@
 
 ## 运行归属
 
-扩展运行在加载它的 Pi 进程内。`/audioharness <boardid>` 只在 Pi 空闲且没有排队消息时启动 HTTP 服务。加载扩展本身不启动服务。已有白板直接打开，不存在的白板使用教学示例初始化。
+扩展运行在加载它的 Pi 进程内。`/tele <boardid>` 只在 Pi 空闲且没有排队消息时启动 HTTP 服务。加载扩展本身不启动服务。已有白板直接打开，不存在的白板使用教学示例初始化。
 
-`/audioharness off` 立即撤销私有连接、关闭自己拥有的 HTTP 服务，然后等待 Pi 空闲，恢复连接前的工具集合。它不终止 Pi，也不撤销已经提交的白板修改。如果其他扩展的终端对话框没有结束，工具恢复可能继续等待。
+`/tele off` 立即撤销私有连接、关闭自己拥有的 HTTP 服务，然后等待 Pi 空闲，恢复连接前的工具集合。它不终止 Pi，也不撤销已经提交的白板修改。如果其他扩展的终端对话框没有结束，工具恢复可能继续等待。
 
-Pi 的 `isIdle()` 不包含所有仍在等待的输入钩子。浏览器提交因此带有进程内 `AsyncLocalStorage` 来源标记；off 将该标记撤销。迟到的提交会在 `before_agent_start` 被中止，其工具调用也被拒绝。标记的注册器在同一 Pi 进程的扩展重载之间保留，不写文件或全局配置。迟到输入可能仍以已中止的记录出现在原 Pi 历史中，撤销不是删除历史。
+Pi 的 `isIdle()` 不包含所有仍在等待的输入钩子。浏览器提交因此带有进程内 `AsyncLocalStorage` 来源标记；off 将该标记撤销。迟到的提交会在 `before_agent_start` 被中止，其工具调用也被拒绝。标记的私有全局注册器 `__audioharnessDispatchV1` 在改名后刻意保持原身份，避免实时重载丢失对旧挂起输入的撤销能力。它不是旧公共 API 的别名，不写文件或全局配置。迟到输入可能仍以已中止的记录出现在原 Pi 历史中，撤销不是删除历史。
 
 退出、重载、切换会话、分叉和切换分支均撤销绑定。选择新会话后必须重新运行连接命令。扩展不扫描会话目录，不创建 `AgentSession`，不打开第二个会话文件写入者。数据目录仍由原来的 `BoardStore` 独占。
 
-扩展支持 `--audioharness-port <0..65535>` 和 `--audioharness-data <path>`。端口 `0` 请求系统分配空闲端口。未指定时使用原有 `AUDIOHARNESS_PORT`、`AUDIOHARNESS_DATA` 和项目默认路径。普通 CLI 的端口配置仍要求非零端口。
+扩展支持 `--tele-port <0..65535>` 和 `--tele-data <path>`。端口 `0` 请求系统分配空闲端口。未指定时使用 `TELE_PORT`、`TELE_DATA` 和项目默认路径。普通 CLI 的端口配置仍要求非零端口。
 
-`.pi/extensions/audioharness.js` 是项目发现入口，指向构建产物。显式加载入口是 `dist/pi-extension.js`。两者选一个，不要在同一个 Pi 中重复加载。Pi 和 TypeBox 使用宿主包；本地开发固定 Pi 1.2.0 和 TypeBox 1.3.27，运行代码没有全局绝对导入路径。
+`.pi/extensions/tele.js` 是项目发现入口，通过 Pi 的 TypeScript 加载器导入 `src/pi-extension.ts`。安装依赖后可在没有 `dist` 的 checkout 中加载；白板的浏览器资源仍需构建。也可以运行 `pi -e /absolute/path/Tele/.pi/extensions/tele.js` 显式加载源码入口。构建后仍支持 `pi -e /absolute/path/Tele/dist/pi-extension.js`。各入口选一个，不要在同一个 Pi 中重复加载。Pi 和 TypeBox 使用宿主包；本地开发固定 Pi 1.2.0 和 TypeBox 1.3.27，运行代码没有全局绝对导入路径。
 
 ## 私有 HTTP 协议
 
@@ -55,7 +55,7 @@ HTTP 202 的 `submitted` 只表示调用了 Pi 的 void 提交 API，不保证�
 
 ## 音乐工具模式
 
-唯一工具名是 `audioharness_board`，没有额外命名空间。操作如下：
+唯一工具名是 `tele_board`，没有额外命名空间。操作如下：
 
 - `catalogue` 返回固定和弦库。
 - `get` 返回当前绑定白板。
@@ -71,7 +71,7 @@ HTTP 202 的 `submitted` 只表示调用了 Pi 的 void 提交 API，不保证�
 
 面板支持右侧、左侧、底部和折叠。窄屏固定在底部，不改写桌面位置偏好。白板使用容器宽度调整和弦列数。白板快照与对话流互不替换 DOM，输入框在流式更新、白板更新、折叠和位置切换时保持身份及草稿。阅读旧历史时不会自动滚到底部。
 
-localStorage 只保存位置、折叠状态和非秘密绑定 ID。草稿不写入存储，刷新会丢失尚未发送的草稿。连接中断时禁止发送；重新读取状态不会重试发送。若网络响应不确定，先检查历史和 Pi 终端，确认后再重新连接，不要盲目再次发送。
+localStorage 使用 `tele.chat.dock`、`tele.chat.collapsed` 和 `tele.chat.binding:<boardid>`，只保存位置、折叠状态和非秘密绑定 ID。草稿不写入存储，刷新会丢失尚未发送的草稿。连接中断时禁止发送；重新读取状态不会重试发送。若网络响应不确定，先检查历史和 Pi 终端，确认后再重新连接，不要盲目再次发送。
 
 `ui_prompt_start` 和 `ui_prompt_end` 使面板显示“需要终端操作”，并禁止新发送。扩展不能回答其他扩展的任意确认框；浏览器没有自动批准或伪造选择结果的接口。需要确认时回终端处理，或对实际运行请求停止。
 
@@ -81,7 +81,7 @@ localStorage 只保存位置、折叠状态和非秘密绑定 ID。草稿不写�
 
 `npm run verify:chat:probe` 启动独立无模型 Pi，用测试扩展建立临时历史并消费输入。它验证真实 Pi 的 UI 等待事件、历史、声明恢复、会话替换、浏览器配对和布局。另一个测试把输入暂停在外部扩展钩子内，在 off 后释放，确认它在任何 provider 请求之前被中止。因此 agent start 计数可能非零，但 provider request 必须为零；测试扩展还提供意外请求的中止保护。测试驱动明确拒绝测试对话框，产品本身不代为批准。
 
-`npm run verify:chat:browser` 启动独立预览 Pi，只加载本扩展，只允许白板工具。最多三个用户输入分别建立真实 canary 历史、从浏览器依据旧历史修改白板、从浏览器中止下一次流式回复。它检查实际 Pi 会话文件、工具调用及更新后的同一页面。默认模型是 `github-copilot/gpt-6-luna`，可通过 `AUDIOHARNESS_TEST_MODEL` 选择已配置模型。凭据只由 Pi 自己读取。每次运行会产生模型用量。
+`npm run verify:chat:browser` 启动独立预览 Pi，只加载本扩展，只允许白板工具。最多三个用户输入分别建立真实 canary 历史、从浏览器依据旧历史修改白板、从浏览器中止下一次流式回复。它检查实际 Pi 会话文件、工具调用及更新后的同一页面。默认模型是 `github-copilot/gpt-6-luna`，可通过 `TELE_TEST_MODEL` 选择已配置模型。凭据只由 Pi 自己读取。每次运行会产生模型用量。
 
 固定的 Pi 1.2.0 开发依赖在本次安装中带有三项 npm audit 告警，涉及上游 minimatch 和 undici 依赖树。`npm audit --omit=dev` 为零告警。这不表示宿主 Pi 没有风险；宿主的安全更新由 Pi 安装本身管理，本项目不改写它的全局配置或依赖。
 

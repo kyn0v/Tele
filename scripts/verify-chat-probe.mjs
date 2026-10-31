@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { previewPi, root } from './pi-preview.mjs';
 import { chromium } from 'playwright';
 
-const directory = await mkdtemp(join(tmpdir(), 'audioharness-pi-probe-'));
-const pi = previewPi({ directory, model: 'github-copilot/gpt-6-luna', tools: 'read,audioharness_board', offline: true, extensions: [`${root}test/pi-probe-extension.ts`] });
+const directory = await mkdtemp(join(tmpdir(), 'tele-pi-probe-'));
+const pi = previewPi({ directory, model: 'github-copilot/gpt-6-luna', tools: 'read,tele_board', offline: true, extensions: [`${root}test/pi-probe-extension.ts`] });
 let browser;
 let agentStarts = 0;
 pi.observe(event => { if (event.type === 'agent_start') agentStarts++; });
@@ -48,7 +48,7 @@ try {
   assert(!JSON.stringify(view).includes('Private summary'));
   const toolsNotice = pi.wait(event => event.type === 'extension_ui_request' && event.message?.includes('probeTools'));
   await pi.command('prompt', { message: '/probe-tools' });
-  assert.deepEqual(JSON.parse((await toolsNotice).message).probeTools, ['audioharness_board']);
+  assert.deepEqual(JSON.parse((await toolsNotice).message).probeTools, ['tele_board']);
   const promptEvent = pi.wait(event => event.type === 'extension_ui_request' && event.method === 'confirm');
   const promptCommand = pi.command('prompt', { message: '/probe-prompt' });
   const dialog = await promptEvent;
@@ -72,7 +72,7 @@ try {
   assert.equal(await page.locator('#chat-input').inputValue(), 'Consumed input canary');
   assert(await page.getByRole('button', { name: '发送', exact: true }).isDisabled());
   assert.equal(agentStarts, 0);
-  await pi.command('prompt', { message: '/audioharness off' });
+  await pi.command('prompt', { message: '/tele off' });
   const restoredNotice = pi.wait(event => event.type === 'extension_ui_request' && event.message?.includes('probeTools'));
   await pi.command('prompt', { message: '/probe-tools' });
   assert.deepEqual(JSON.parse((await restoredNotice).message).probeTools, ['read']);
@@ -86,7 +86,7 @@ try {
   await page.locator('#chat-input').fill('Delayed browser input');
   await page.getByRole('button', { name: '发送', exact: true }).click();
   await suspended;
-  await pi.command('prompt', { message: '/audioharness off' });
+  await pi.command('prompt', { message: '/tele off' });
   const aborted = pi.wait(event => event.type === 'agent_settled');
   await pi.command('prompt', { message: '/probe-release' });
   assert((await aborted).aborted, 'Detached input cannot start an unrestricted late run');

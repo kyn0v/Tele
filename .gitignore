@@ -2,6 +2,9 @@ node_modules/
 dist/
 .data/
 .audit/
+auth.json
+auth/
+sessions/
 .playwright-mcp/
 .claude/worktrees/
 *.log
