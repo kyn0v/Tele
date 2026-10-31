@@ -18,7 +18,7 @@ npm run board -- put harmony --expect 1 --file examples/comparison.json
 npm run board -- catalogue
 ```
 
-The first put creates a board, returns its revision and stable `/b/harmony` URL, and optionally opens it with the operating system browser. The second put replaces the complete board document at the expected revision. The already-open page receives the updated snapshot. Agent interfaces are CLI and HTTP; no MCP adapter or embedded chat is needed for this POC.
+The first put creates a board, returns its revision and stable `/b/harmony` URL, and optionally opens it with the operating system browser. The second put replaces the complete board document at the expected revision. The already-open page receives the updated snapshot. The standalone board interfaces remain CLI and HTTP. The optional live Pi conversation panel now adds an in-process extension and browser input, as described in [the chat design](chat-design.md).
 
 ## Shape
 
@@ -89,4 +89,4 @@ Build and test music fixtures and real HTTP behavior, including conflicts, inval
 
 ## Implementation status
 
-The catalogue, conflict-safe HTTP service, browser diagrams, shared synthesis and agent CLI are implemented. The repository includes real HTTP tests and a reproducible production-browser verification script. Independent implementation review remains the parent agent's delivery gate.
+The catalogue, conflict-safe HTTP service, browser diagrams, shared synthesis and agent CLI are implemented. The optional conversation panel uses the same server and store inside the live Pi process. Its independent DOM and container-aware layout preserve the original board and audio behavior. The repository includes real HTTP tests and a reproducible production-browser verification script. Independent implementation review remains the parent agent's delivery gate.
