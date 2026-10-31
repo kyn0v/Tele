@@ -34,6 +34,7 @@ test('admission reserves once, binds IDs to content, handles busy/pending/stale 
   assert.throws(() => chat.submit(send('/audioharness off')), /not slash/);
   const command = send(); const receipt = chat.submit(command);
   assert.equal(receipt.status, 'submitted');
+  assert.equal(chat.snapshot().runId, null, 'A send reservation is not an abortable run');
   assert.deepEqual(chat.submit(command), receipt); assert.equal(calls.length, 1);
   assert.deepEqual(calls[0]?.options, { expandPromptTemplates: false });
   assert.throws(() => chat.submit({ ...command, kind: 'send', text: 'Different' }), /different content/);
@@ -69,6 +70,9 @@ test('void dispatch ambiguity is bounded and never auto-resends; terminal prompt
   assert.notEqual(chat.snapshot().runId, firstRun);
   assert.throws(() => chat.submit({ ...abort, id: randomUUID() }), /no longer active/);
   chat.submit(abort); assert.equal(aborts(), 1, 'Duplicate old abort never cancels a newer run');
+  const continuation = chat.snapshot().runId; assert(continuation);
+  chat.started(ctx);
+  assert.throws(() => chat.submit({ ...abort, id: randomUUID(), runId: continuation }), /no longer active/, 'Each actual agent_start invalidates earlier abort targets, even before overall settlement');
   chat.close();
 });
 

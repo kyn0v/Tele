@@ -6,7 +6,7 @@ import { HttpError } from './http.js';
 import type { BoardId } from './schema.js';
 
 type ChatContext = Pick<ExtensionContext, 'sessionManager' | 'isIdle' | 'hasPendingMessages' | 'abort'>;
-type Activity = { kind: 'idle' | 'uncertain' | 'disconnected' } | { kind: 'submitted' | 'busy' | 'stopping'; runId: string };
+type Activity = { kind: 'idle' | 'submitted' | 'uncertain' | 'disconnected' } | { kind: 'busy' | 'stopping'; runId: string };
 export class PiChat implements ChatAdapter {
   private activity: Activity = { kind: 'idle' };
   private prompts = 0;
@@ -64,7 +64,7 @@ export class PiChat implements ChatAdapter {
       if (command.idleVersion !== this.idleVersion) throw new HttpError(409, 'State changed. Review the latest conversation before sending.');
       if (this.activity.kind !== 'idle' || this.prompts || !this.ctx.isIdle() || this.ctx.hasPendingMessages()) throw new HttpError(409, 'Pi is busy or awaiting terminal action');
       if (/^\s*[\/!]/.test(command.text)) throw new HttpError(400, 'Browser input is music text, not slash or shell commands');
-      this.activity = { kind: 'submitted', runId: randomUUID() };
+      this.activity = { kind: 'submitted' };
       this.idleVersion++;
       this.submission = { id: command.id, state: 'submitted' };
       this.submittedTextHash = createHash('sha256').update(command.text).digest('hex');
@@ -103,8 +103,7 @@ export class PiChat implements ChatAdapter {
   started(ctx: ChatContext) {
     if (this.activity.kind === 'disconnected') return;
     this.ctx = ctx;
-    const runId = 'runId' in this.activity ? this.activity.runId : randomUUID();
-    this.activity = { kind: 'busy', runId };
+    this.activity = { kind: 'busy', runId: randomUUID() };
     this.idleVersion++;
     this.changed();
   }

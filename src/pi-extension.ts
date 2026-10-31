@@ -48,7 +48,7 @@ export default function audioharness(pi: ExtensionAPI) {
     name: BOARD_TOOL, label: 'AudioHarness board',
     description: 'Read the chord catalogue or get/replace the attached music board. No other board is accessible. For put, first get its revision and pass expectedRevision plus the complete content. Never edit application files.',
     exposure: 'model-only',
-    annotations: { destructiveHint: false, openWorldHint: false, idempotentHint: false },
+    annotations: { destructiveHint: true, openWorldHint: false, idempotentHint: false },
     parameters,
     async execute(_id, input) {
       if (!owned || detaching) throw new Error('AudioHarness is not attached');
