@@ -163,6 +163,22 @@ test('registry lookup accepts only the exact version response or a parsed author
   }
 });
 
+test('the npm exact-version JSON string 404 is absence only for the requested version', async t => {
+  let status = 404;
+  let body = JSON.stringify(`version not found: ${version}`);
+  const { base } = await registryFixture(t, (_, response) => reply(response, status, body));
+  assert.equal(await registryVersion(version, base), undefined);
+  for (const value of ['version not found: 9.9.9', 'Not found', '']) {
+    body = JSON.stringify(value);
+    await assert.rejects(registryVersion(version, base));
+  }
+  body = JSON.stringify(`version not found: ${version}`);
+  for (const code of [401, 403, 500]) {
+    status = code;
+    await assert.rejects(registryVersion(version, base));
+  }
+});
+
 test('registry transport failure is never absence', async t => {
   const { base } = await registryFixture(t, (request) => request.socket.destroy());
   await assert.rejects(registryVersion(version, base));
