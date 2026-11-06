@@ -3,6 +3,12 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 export default function probe(pi: ExtensionAPI) {
   let release: (() => void) | undefined;
   let providerRequests = 0;
+  pi.registerProvider('tele-probe', {
+    baseUrl: 'https://tele-probe.invalid', apiKey: 'tele-probe-no-network', api: 'tele-probe',
+    models: [{ id: 'no-network', name: 'No-network probe', reasoning: false, input: ['text'],
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 128000, maxTokens: 1024 }],
+    streamSimple() { providerRequests++; throw new Error('Probe must abort before provider execution'); },
+  });
   pi.on('before_provider_request', (_event, ctx) => { providerRequests++; ctx.abort(); });
   pi.on('input', async (event, ctx) => {
     if (event.source !== 'extension') return;

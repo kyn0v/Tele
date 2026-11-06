@@ -6,7 +6,7 @@ import { previewPi, root } from './pi-preview.mjs';
 import { chromium } from 'playwright';
 
 const directory = await mkdtemp(join(tmpdir(), 'tele-pi-probe-'));
-const pi = previewPi({ directory, model: 'github-copilot/gpt-6-luna', tools: 'read,tele_board', offline: true, extensions: [`${root}test/pi-probe-extension.ts`] });
+const pi = previewPi({ directory, model: 'tele-probe/no-network', tools: 'read,tele_board', offline: true, extensions: [`${root}test/pi-probe-extension.ts`] });
 let browser;
 let agentStarts = 0;
 async function assertNoOverflow(page, state) {
@@ -40,7 +40,9 @@ async function assertNoOverflow(page, state) {
 }
 pi.observe(event => { if (event.type === 'agent_start') agentStarts++; });
 try {
-  await pi.command('get_state');
+  const state = await pi.command('get_state');
+  assert.equal(state.model?.provider, 'tele-probe');
+  assert.equal(state.model?.id, 'no-network');
   await pi.command('prompt', { message: '/probe-seed' });
   const invitation = new URL(await pi.attach());
   const [binding, secret] = invitation.hash.slice(6).split('.');
@@ -225,7 +227,7 @@ try {
   await pi.command('new_session');
   await assert.rejects(fetch(`${replacement.origin}/api/capabilities`));
   assert.deepEqual(errors, []);
-  const report = { fallbackFontLayout: 'Verdana/sans-serif expand labels stay visible without clipping or page overflow in both languages and all docks, including mobile', internationalization: 'English and Simplified Chinese generated visible/accessibility labels; navigator fallback, invalid preference, blocked storage, persistence; draft node/focus/selection, user notice text, session name, board and original Pi history unchanged; all docks/collapsed/mobile without overflow; zero locale-triggered commands', runtime: 'Pi 1.2.0 in-process extension, RPC used only as preview driver', providerRequests: late.providerRequests, agentStarts, lateSubmission: 'An input suspended by another extension was revoked by off and aborted before provider work', originalPreCompactionHistory: true, privateSummaryExcluded: true, voidSubmissionConsumed: 'unknown after bounded observation', terminalDialog: 'real ui_prompt_start/end observed; driver explicitly declined, browser never approves', toolLoadout: 'bound only, restored after off', lifecycle: 'off keeps Pi alive, new_session stops owned server and revokes grant' };
+  const report = { probeModel: 'tele-probe/no-network', isolatedPiProfile: true, fallbackFontLayout: 'Verdana/sans-serif expand labels stay visible without clipping or page overflow in both languages and all docks, including mobile', internationalization: 'English and Simplified Chinese generated visible/accessibility labels; navigator fallback, invalid preference, blocked storage, persistence; draft node/focus/selection, user notice text, session name, board and original Pi history unchanged; all docks/collapsed/mobile without overflow; zero locale-triggered commands', runtime: 'Pi 1.2.0 in-process extension, RPC used only as preview driver', providerRequests: late.providerRequests, agentStarts, lateSubmission: 'An input suspended by another extension was revoked by off and aborted before provider work', originalPreCompactionHistory: true, privateSummaryExcluded: true, voidSubmissionConsumed: 'unknown after bounded observation', terminalDialog: 'real ui_prompt_start/end observed; driver explicitly declined, browser never approves', toolLoadout: 'bound only, restored after off', lifecycle: 'off keeps Pi alive, new_session stops owned server and revokes grant' };
   await mkdir(`${root}.audit/chat`, { recursive: true });
   await writeFile(`${root}.audit/chat/probe.json`, JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

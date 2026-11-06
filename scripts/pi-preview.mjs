@@ -12,7 +12,10 @@ export function previewPi({ directory, model, extensions = [], persist = false, 
     ...(model ? ['--model', model, '--thinking', 'low'] : []),
     ...(offline || !model ? ['--offline'] : []),
     ...extensions.flatMap(path => ['-e', path])];
-  const child = spawn(process.execPath, args, { cwd: directory, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, args, {
+    cwd: directory, stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, ...(offline || !model ? { PI_CODING_AGENT_DIR: `${directory}/agent`, PI_TELEMETRY: '0' } : {}) },
+  });
   const listeners = new Set();
   const pending = new Map();
   let partial = '';
