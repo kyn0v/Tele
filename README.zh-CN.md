@@ -1,12 +1,39 @@
 # Tele
 
+[![npm 版本](https://img.shields.io/npm/v/%40kyn0v%2Fpi-tele)](https://www.npmjs.com/package/@kyn0v/pi-tele)
+
 A Harness for Musical Interaction.
 
 为大模型提供可视、可听、可交互的音乐组件与操作接口。当前概念验证提供吉他和弦白板，以及由同一个活跃 Pi 会话拥有的对话面板。Agent 更新白板，你可以点击和弦听到结果。乐理讲解是其中一类用例，不是 Tele 的全部范围。
 
 [English](README.md) | 简体中文
 
+## 安装为 Pi 包
+
+需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。安装已公开发布的 npm 包：
+
+```sh
+pi install npm:@kyn0v/pi-tele
+```
+
+npm 压缩包包含已构建的运行文件与浏览器资源，不需要安装脚本。0.1.0 已公开发布，并列入 [Pi 包目录](https://pi.dev/packages/@kyn0v/pi-tele)。该版本内嵌的 README 写于发布前，已发布的包不可修改。本次修正文档将在下一次获授权的版本发布后进入 npm。
+
+在 Pi 中等当前工作结束，再运行 `/reload` 和 `/tele harmony`。为避免重复加载，请在 Tele checkout 外使用已注册的包。不要同时使用包注册、项目自动发现或显式 `-e` 加载。
+
+本地开发时，可以改为构建 checkout 并注册绝对路径：
+
+```sh
+cd /absolute/path/Tele
+npm ci
+npm run build
+pi install /absolute/path/Tele
+```
+
+本地注册不会安装依赖或构建资源。克隆或更新 checkout 后，先执行前三条命令。CI、已验证压缩包的原样导出和由所有者控制的发布步骤见[发布已审核的 Pi 包](docs/publishing.md)。
+
 ## 在白板旁继续当前 Pi 对话
+
+不注册包的源码开发可使用下面的项目发现方式。
 
 需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。在 shell 中安装依赖并构建浏览器资源，不要同时启动独立服务。
 
@@ -91,7 +118,9 @@ CLI 写入使用本机数据目录里的 capability 文件，浏览器不持有�
 
 ## 使用不同端口或数据目录
 
-服务和 CLI 使用相同的环境变量。默认数据目录是项目旁的 `.data`，不取决于 shell 当前工作目录。自定义目录建议使用绝对路径。
+扩展、独立服务和 CLI 共用默认数据目录 `~/.tele`，位于安装包之外。重新安装包不会替换白板或本机写入 capability。显式相对 `TELE_DATA` 路径仍相对于 shell 当前工作目录解析。不同目录中的命令应使用同一个绝对路径。
+
+旧 checkout 数据不会被自动发现、移动或删除。如需继续使用已有白板，请在启动 Pi 和 CLI 前，为两者设置 `TELE_DATA=/absolute/path/old-checkout/.data`。
 
 ```sh
 TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm start
@@ -100,7 +129,7 @@ TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm run board -- get demo
 
 同一数据目录只允许一个服务，即使端口不同。崩溃后可能保留 `server.lock`，导致启动失败。先查看其中的 `owner.json` 并确认旧进程已退出，再手动移除锁目录。Tele 不自动猜测锁是否过期。
 
-Pi 扩展也接受 `--tele-port` 和 `--tele-data`。端口 `0` 请求系统分配空闲端口。独立 CLI 的 `TELE_PORT` 必须是非零端口。
+Pi 扩展也接受 `--tele-port` 和 `--tele-data`，优先于对应环境变量。端口 `0` 请求系统分配空闲端口。独立 CLI 的 `TELE_PORT` 必须是非零端口。Pi 使用自定义端口时，CLI 命令须设置相同的 `TELE_PORT`。Pi 使用 `--tele-data` 时，CLI 须通过 `TELE_DATA` 指向同一目录。
 
 ## 隐私与概念验证边界
 
@@ -120,15 +149,14 @@ Tele 只监听 `127.0.0.1`。白板读取对能访问本机服务的调用方公
 
 ```sh
 npm ci
-npm run verify:extension
-npm test
-npm run build
-npx playwright install chromium --only-shell
-npm run verify:chat:probe
-npm run verify:browser
+npm run verify:ci
 ```
 
+`verify:ci` 按顺序运行扩展发现、测试、构建、Chromium 安装、包验证、无模型对话探针和浏览器验证。已有 `dist` 时会失败，不会删除构建产物。GitHub Ubuntu 会安装 Chromium 的系统依赖，其他 Linux 主机须另行安装这些依赖。可用绝对路径 `PLAYWRIGHT_BROWSERS_PATH` 指定共用浏览器缓存。添加 `-- --artifact-dir /absolute/path/new-directory`，可在整套检查成功后原样保留已验证的压缩包和元数据。前置条件与产物边界见[发布说明](docs/publishing.md)。
+
 `verify:extension` 在离线 Pi 中检查项目自动发现，使用临时配置、不保存会话、不传 `-e`。它不发送模型输入，也不生成 `dist`。
+
+`verify:package` 构建并打包 Tele，在只安装生产依赖且禁用生命周期脚本的环境中安装压缩包，再将安装目录注册到一次性离线 Pi。它检查浏览器私有配对、全部已分发浏览器资源、已安装 CLI 的写入与冲突、默认 home 数据目录，以及重装后的持久化。Pi 和 Playwright 只由开发宿主提供。此验证覆盖压缩包和 Pi 本地注册，不覆盖 Pi 的 npm 下载器。它不会发布包或修改你的 Pi 设置。
 
 `npm test` 使用真实 HTTP 服务、临时目录和 CLI 子进程，覆盖乐理数据、校验、冲突、持久化、锁、SSE、私有对话授权、语义提示、语言词典覆盖和回退。单元测试不能替代浏览器验证。
 
@@ -155,10 +183,11 @@ README 和浏览器生成的界面支持英语和简体中文，其他文档并�
 - [白板 API 参考](docs/reference.md)为英语，记录精确字段、容量、安全和持久化。
 - [Pi 对话参考](docs/chat-reference.md)为简体中文，记录私有 HTTP、语义投影代码和生命周期边界。
 - [白板设计](docs/design.md)和[对话设计](docs/chat-design.md)为英语。
+- [发布已审核的 Pi 包](docs/publishing.md)说明 CI、原样产物验证和未来获授权的 OIDC 发布步骤。
 - [第三方说明](THIRD_PARTY_NOTICES.md)记录依赖及许可证边界。
 
 ## References
 
 [TwoMoons](https://github.com/moayuisuda/two-moons) 是将吉他指法与可播放音高关联的原始上游产品参考，上游采用 GPL-3.0。本地参考 checkout 是 [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork，主要归属仍为原始上游。
 
-Tele 仅将 TwoMoons 作为参考，没有导入或复制其源码、音频样本或其他素材。本项目的 HTML、CSS、指板绘制与合成均为独立实现。依赖及许可证说明见[第三方说明](THIRD_PARTY_NOTICES.md)。本仓库没有为 Tele 源码指定许可证。`package.json` 保留 `private: true`，防止发布到 npm。
+Tele 仅将 TwoMoons 作为参考，没有导入或复制其源码、音频样本或其他素材。本项目的 HTML、CSS、指板绘制与合成均为独立实现。依赖及许可证说明见[第三方说明](THIRD_PARTY_NOTICES.md)。Tele 源码采用 [MIT 许可证](LICENSE)，版权归属 2026 Jian。第三方许可证保持不变。

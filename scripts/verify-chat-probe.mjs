@@ -6,12 +6,43 @@ import { previewPi, root } from './pi-preview.mjs';
 import { chromium } from 'playwright';
 
 const directory = await mkdtemp(join(tmpdir(), 'tele-pi-probe-'));
-const pi = previewPi({ directory, model: 'github-copilot/gpt-6-luna', tools: 'read,tele_board', offline: true, extensions: [`${root}test/pi-probe-extension.ts`] });
+const pi = previewPi({ directory, model: 'tele-probe/no-network', tools: 'read,tele_board', offline: true, extensions: [`${root}test/pi-probe-extension.ts`] });
 let browser;
 let agentStarts = 0;
+async function assertNoOverflow(page, state) {
+  const diagnostic = await page.evaluate(() => {
+    if (document.documentElement.scrollWidth <= innerWidth) return null;
+    function measure(element) {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return { tag: element.tagName, class: element.getAttribute('class')?.slice(0, 100), rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height, right: rect.right }, clientWidth: element.clientWidth, scrollWidth: element.scrollWidth, font: style.font, padding: style.padding, display: style.display };
+    }
+    return {
+      viewport: { innerWidth, innerHeight, clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth, bodyWidth: document.body.clientWidth, scrollX },
+      locale: document.documentElement.lang, dock: document.body.dataset.chatDock, collapsed: document.body.dataset.chatCollapsed,
+      expanded: document.querySelector('.chat-collapse')?.getAttribute('aria-expanded'), bodyHidden: document.querySelector('.chat-body')?.hidden,
+      userAgent: navigator.userAgent, fonts: document.fonts.status, animations: document.getAnimations().length,
+      layout: ['main', '.chat-panel', '.chat-header', '.chat-collapse'].map(selector => measure(document.querySelector(selector))),
+      overflow: [...document.querySelectorAll('body *')].filter(element => { const rect = element.getBoundingClientRect(); return rect.width && (rect.right > innerWidth || rect.left < 0); }).slice(0, 12).map(measure),
+    };
+  });
+  if (diagnostic) {
+    const session = await page.context().newCDPSession(page);
+    await session.send('DOM.enable'); await session.send('CSS.enable');
+    const { root: documentRoot } = await session.send('DOM.getDocument');
+    const { nodeId } = await session.send('DOM.querySelector', { nodeId: documentRoot.nodeId, selector: '.chat-collapse' });
+    diagnostic.platformFonts = (await session.send('CSS.getPlatformFontsForNode', { nodeId })).fonts;
+    await session.detach();
+    process.stderr.write(`${JSON.stringify({ event: 'chat-layout-overflow', state, ...diagnostic })}\n`);
+    await page.screenshot({ path: `${root}.audit/chat/probe-overflow-${state}.png`, mask: [page.locator('.chat-body')] });
+  }
+  assert.equal(diagnostic, null, `No horizontal overflow in ${state}`);
+}
 pi.observe(event => { if (event.type === 'agent_start') agentStarts++; });
 try {
-  await pi.command('get_state');
+  const state = await pi.command('get_state');
+  assert.equal(state.model?.provider, 'tele-probe');
+  assert.equal(state.model?.id, 'no-network');
   await pi.command('prompt', { message: '/probe-seed' });
   const invitation = new URL(await pi.attach());
   const [binding, secret] = invitation.hash.slice(6).split('.');
@@ -84,12 +115,12 @@ try {
       assert.equal(await page.locator('#chat-input').inputValue(), '保留输入 draft');
       assert(await page.locator('#chat-input').evaluate(input => input === window.composerProof));
       assert(await page.locator('.chat-session').isVisible());
-      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await assertNoOverflow(page, `${language}-${dock}`);
       await page.screenshot({ path: `${root}.audit/chat/probe-${language}-${dock}.png` });
       await page.locator('.chat-collapse').click();
       assert(await page.locator('#locale').isVisible());
       assert.equal(await page.locator('.chat-collapse').getAttribute('aria-expanded'), 'false');
-      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      await assertNoOverflow(page, `${language}-${dock}-collapsed`);
       await page.screenshot({ path: `${root}.audit/chat/probe-${language}-${dock}-collapsed.png` });
       await page.locator('.chat-collapse').click();
     }
@@ -97,7 +128,7 @@ try {
     assert(await page.locator('.chat-limitation').isVisible());
     assert(await page.locator('#chat-input').isVisible());
     assert(await page.locator('#locale').isVisible());
-    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await assertNoOverflow(page, `${language}-mobile`);
     await page.screenshot({ path: `${root}.audit/chat/probe-${language}-mobile.png` });
     await page.locator('.chat-collapse').click();
     assert(await page.locator('#locale').isVisible());
@@ -108,6 +139,28 @@ try {
     await page.locator('.chat-collapse').click();
     await page.setViewportSize({ width: 1440, height: 1000 });
   }
+  const fallbackFont = await page.evaluateHandle(() => {
+    const sheet = document.styleSheets[0];
+    const index = sheet.insertRule('.chat-panel .chat-collapse { font-family: Verdana, sans-serif; }', sheet.cssRules.length);
+    return { sheet, index };
+  });
+  for (const language of ['en', 'zh-CN']) {
+    await page.locator('#locale').selectOption(language);
+    for (const dock of ['right', 'left', 'bottom']) {
+      await page.locator('.chat-dock').selectOption(dock);
+      await page.locator('.chat-collapse').click();
+      await assertNoOverflow(page, `fallback-${language}-${dock}-collapsed`);
+      assert(await page.locator('.chat-collapse').evaluate(button => button.scrollWidth <= button.clientWidth), 'Expand label must fit without clipping');
+      await page.locator('.chat-collapse').click();
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.locator('.chat-collapse').click();
+    await assertNoOverflow(page, `fallback-${language}-mobile-collapsed`);
+    await page.locator('.chat-collapse').click();
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
+  await fallbackFont.evaluate(({ sheet, index }) => sheet.deleteRule(index));
+  await fallbackFont.dispose();
   await page.locator('#chat-input').focus();
   await page.evaluate(() => {
     const input = document.querySelector('#chat-input'); input.setSelectionRange(2, 4);
@@ -174,7 +227,7 @@ try {
   await pi.command('new_session');
   await assert.rejects(fetch(`${replacement.origin}/api/capabilities`));
   assert.deepEqual(errors, []);
-  const report = { internationalization: 'English and Simplified Chinese generated visible/accessibility labels; navigator fallback, invalid preference, blocked storage, persistence; draft node/focus/selection, user notice text, session name, board and original Pi history unchanged; all docks/collapsed/mobile without overflow; zero locale-triggered commands', runtime: 'Pi 1.2.0 in-process extension, RPC used only as preview driver', providerRequests: late.providerRequests, agentStarts, lateSubmission: 'An input suspended by another extension was revoked by off and aborted before provider work', originalPreCompactionHistory: true, privateSummaryExcluded: true, voidSubmissionConsumed: 'unknown after bounded observation', terminalDialog: 'real ui_prompt_start/end observed; driver explicitly declined, browser never approves', toolLoadout: 'bound only, restored after off', lifecycle: 'off keeps Pi alive, new_session stops owned server and revokes grant' };
+  const report = { probeModel: 'tele-probe/no-network', isolatedPiProfile: true, fallbackFontLayout: 'Verdana/sans-serif expand labels stay visible without clipping or page overflow in both languages and all docks, including mobile', internationalization: 'English and Simplified Chinese generated visible/accessibility labels; navigator fallback, invalid preference, blocked storage, persistence; draft node/focus/selection, user notice text, session name, board and original Pi history unchanged; all docks/collapsed/mobile without overflow; zero locale-triggered commands', runtime: 'Pi 1.2.0 in-process extension, RPC used only as preview driver', providerRequests: late.providerRequests, agentStarts, lateSubmission: 'An input suspended by another extension was revoked by off and aborted before provider work', originalPreCompactionHistory: true, privateSummaryExcluded: true, voidSubmissionConsumed: 'unknown after bounded observation', terminalDialog: 'real ui_prompt_start/end observed; driver explicitly declined, browser never approves', toolLoadout: 'bound only, restored after off', lifecycle: 'off keeps Pi alive, new_session stops owned server and revokes grant' };
   await mkdir(`${root}.audit/chat`, { recursive: true });
   await writeFile(`${root}.audit/chat/probe.json`, JSON.stringify(report, null, 2));
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

@@ -104,7 +104,7 @@ There is no permissive CORS response. Host is restricted to `127.0.0.1:<port>` o
 
 ## Persistence and ownership
 
-`TELE_DATA` selects a directory. The default is `.data` beside the project, resolved relative to the installed modules rather than the process working directory. `TELE_PORT` is an integer 1 to 65535 and defaults to 4317. Test code may pass port zero directly to `startServer`.
+`TELE_DATA` selects a directory. The default is `~/.tele`, outside the installed package and independent of the process working directory. Explicit relative paths resolve from the process working directory. Old checkout `.data` directories are not probed, migrated, or deleted. `TELE_DATA=/absolute/path/old-checkout/.data` selects an existing directory explicitly. `TELE_PORT` is an integer 1 to 65535 and defaults to 4317. Test code may pass port zero directly to `startServer`.
 
 The directory contains:
 
@@ -126,7 +126,9 @@ SIGINT and SIGTERM end SSE streams and stop the HTTP server before releasing the
 
 `src/audio.ts` exports `scheduleChord(context: BaseAudioContext, notes: readonly number[], at: number)`. It returns start and end times, a `finished` promise resolved by oscillator end events, and a cancellable `stop` function. The browser retains cancellation handles until all voices finish on the audio clock. Stop disconnects output immediately and cancels oscillators at the current audio time, including while suspended, so resuming cannot play an obsolete tail. Both `AudioContext` and `OfflineAudioContext` are supported. Additive sine partials with decaying envelopes and a short string-by-string offset approximate a pluck. This is original synthesis, not sampled guitar audio.
 
-The project-local `.pi/extensions/tele.js` imports `src/pi-extension.ts` through Pi's TypeScript loader and can load with dependencies installed before `dist` exists. Browser assets and standalone CLI entrypoints still require a build. After building, `pi -e /absolute/path/Tele/dist/pi-extension.js` remains a supported explicit extension entrypoint. Do not load both entrypoints in one Pi process.
+The package manifest selects only `dist/pi-extension.js`. npm tarballs include prebuilt node entrypoints and browser assets. Pi supplies its host API and TypeBox, while Zod is a runtime dependency. There is no `bin` entry or consumer build hook. Local checkout registration requires dependency installation and a build first. [Publishing instructions](publishing.md) describe packed-artifact verification.
+
+The project-local `.pi/extensions/tele.js` imports `src/pi-extension.ts` through Pi's TypeScript loader and can load with dependencies installed before `dist` exists. Browser assets and standalone CLI entrypoints still require a build. After building, `pi -e /absolute/path/Tele/dist/pi-extension.js` remains a supported explicit extension entrypoint. Do not combine package registration, project discovery, and explicit `-e` loading in one Pi process.
 
 `npm run build` emits a standalone ESM module at `dist/public/assets/audio.js`, served as `/assets/audio.js`. Browser automation can import that module directly. There is no test-only global API. `web.js` contains its own bundled copy of the same source implementation.
 

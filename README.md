@@ -1,12 +1,39 @@
 # Tele
 
+[![npm version](https://img.shields.io/npm/v/%40kyn0v%2Fpi-tele)](https://www.npmjs.com/package/@kyn0v/pi-tele)
+
 A Harness for Musical Interaction.
 
 Tele gives language models visual, audible, interactive music components and tools. The current proof of concept combines a guitar chord board with a conversation panel owned by the same live Pi session. Your agent updates the board, and you click chords to hear the result. Music theory explanations are one class of use cases, not the product's whole scope.
 
 English | [简体中文](README.zh-CN.md)
 
+## Install as a Pi package
+
+Requires Node.js 22.19 or newer, npm, and Pi 1.2. Install the public npm package:
+
+```sh
+pi install npm:@kyn0v/pi-tele
+```
+
+npm tarballs contain prebuilt runtime and browser files and need no install scripts. Version 0.1.0 is public and listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). Its immutable packed README predates publication. This corrected README reaches npm with the next authorized version.
+
+In Pi, wait for active work to finish, then run `/reload` and `/tele harmony`. To avoid duplicate loading, use the installed package from outside the Tele checkout. Do not combine package registration with project auto-discovery or explicit `-e` loading.
+
+For local development, build a checkout and register its absolute path instead:
+
+```sh
+cd /absolute/path/Tele
+npm ci
+npm run build
+pi install /absolute/path/Tele
+```
+
+Local registration does not install dependencies or build assets. Run the first three commands after cloning or updating the checkout. See [Publish a reviewed Pi package](docs/publishing.md) for CI, exact tested tarball export, and the owner-controlled release procedure.
+
 ## Continue your current Pi conversation beside a board
+
+For source development without package registration, use the project-discovery route below.
 
 Requires Node.js 22.19 or newer, npm, and Pi 1.2. Install dependencies and build browser assets in a shell. Do not start the standalone service at the same time.
 
@@ -91,7 +118,9 @@ CLI writes use the capability file in the local data directory. The browser does
 
 ## Use a different port or data directory
 
-The service and CLI use the same environment variables. The default data directory is `.data` beside the project, independent of your shell's working directory. Use an absolute path for a custom directory.
+The extension, standalone service, and CLI share `~/.tele` as the default data directory, outside the installed package. Reinstalling the package does not replace boards or the local write capability. An explicit relative `TELE_DATA` path remains relative to your shell's working directory. Use an absolute path when commands run from different directories.
+
+Old checkout data is not discovered, moved, or deleted. To keep using existing boards, set `TELE_DATA=/absolute/path/old-checkout/.data` for both Pi and the CLI before starting them.
 
 ```sh
 TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm start
@@ -100,7 +129,7 @@ TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm run board -- get demo
 
 Only one service can own a data directory, even on different ports. A crash can leave `server.lock`, which prevents startup. Inspect its `owner.json` and confirm the old process has exited before manually removing that lock directory. Tele does not guess whether a lock is stale.
 
-The Pi extension also accepts `--tele-port` and `--tele-data`. Port `0` asks the system for a free port. The standalone CLI's `TELE_PORT` requires a nonzero port.
+The Pi extension also accepts `--tele-port` and `--tele-data`, which override the matching environment variables. Port `0` asks the system for a free port. The standalone CLI's `TELE_PORT` requires a nonzero port. If Pi uses a custom port, set the same `TELE_PORT` for CLI commands. If Pi uses `--tele-data`, give the CLI the same directory through `TELE_DATA`.
 
 ## Privacy and proof-of-concept limits
 
@@ -120,15 +149,14 @@ Run extension discovery in a fresh checkout with dependencies installed and no `
 
 ```sh
 npm ci
-npm run verify:extension
-npm test
-npm run build
-npx playwright install chromium --only-shell
-npm run verify:chat:probe
-npm run verify:browser
+npm run verify:ci
 ```
 
+`verify:ci` runs extension discovery, tests, build, Chromium installation, package verification, the no-model chat probe, and browser verification in order. It rejects an existing `dist` without deleting it. GitHub Ubuntu installs Chromium's OS dependencies. Other Linux hosts need those dependencies installed separately. Set an absolute `PLAYWRIGHT_BROWSERS_PATH` to choose a shared browser cache. To retain only the exact tested tarball and metadata after the whole gate succeeds, add `-- --artifact-dir /absolute/path/new-directory`. See the [release instructions](docs/publishing.md) for prerequisites and artifact limits.
+
 `verify:extension` checks automatic project discovery in an offline Pi with temporary configuration, no saved session, and no `-e`. It sends no model prompt and does not generate `dist`.
+
+`verify:package` builds and packs Tele, installs the tarball with production dependencies and lifecycle scripts disabled, and registers the installed directory in a disposable offline Pi. It checks private browser pairing, every shipped browser asset, installed CLI writes and conflicts, default home storage, and persistence after reinstall. Pi and Playwright come only from the development host. This tests the tarball and Pi's local registration, not its npm downloader. It does not publish or change your Pi settings.
 
 `npm test` uses real HTTP services, temporary directories, and CLI processes. It covers music data, validation, conflicts, persistence, locks, SSE, private chat access, semantic notices, and locale coverage and fallback. Unit tests do not replace browser verification.
 
@@ -155,10 +183,11 @@ The READMEs and browser-generated UI support English and Simplified Chinese. Oth
 - [Board API reference](docs/reference.md) is in English and records exact fields, limits, security, and persistence.
 - [Pi conversation reference](docs/chat-reference.md) is in Simplified Chinese and records private HTTP, semantic projection codes, and lifecycle limits.
 - [Board design](docs/design.md) and [conversation design](docs/chat-design.md) are in English.
+- [Publish a reviewed Pi package](docs/publishing.md) covers CI, exact artifact verification, and future authorized OIDC releases.
 - [Third-party notices](THIRD_PARTY_NOTICES.md) record dependencies and license boundaries.
 
 ## References
 
 [TwoMoons](https://github.com/moayuisuda/two-moons) is the original upstream product reference for associating guitar fingering with playable pitches. Its upstream license is GPL-3.0. The local reference checkout was the [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork. Primary attribution belongs to the original upstream.
 
-Tele uses TwoMoons only as a reference. It imports or copies none of its source, audio samples, or other assets. This project's HTML, CSS, diagrams, and synthesis are independent implementations. See [third-party notices](THIRD_PARTY_NOTICES.md). This repository does not assign a license to Tele's source. `package.json` retains `private: true` to prevent npm publication.
+Tele uses TwoMoons only as a reference. It imports or copies none of its source, audio samples, or other assets. This project's HTML, CSS, diagrams, and synthesis are independent implementations. See [third-party notices](THIRD_PARTY_NOTICES.md). Tele's source is licensed under the [MIT License](LICENSE), copyright 2026 Jian. Third-party licenses remain unchanged.

@@ -8,6 +8,7 @@ sessions/
 .playwright-mcp/
 .claude/worktrees/
 *.log
+*.tgz
 .env
 .DS_Store
 todo.md

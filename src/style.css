@@ -97,7 +97,7 @@ body[data-chat-collapsed="true"] { grid-template-columns: minmax(0, 1fr) 76px; }
 body[data-chat-collapsed="true"][data-chat-dock="left"] { grid-template-columns: 76px minmax(0, 1fr); }
 body[data-chat-collapsed="true"] .chat-panel { padding: 16px 10px; }
 body[data-chat-collapsed="true"] .chat-title { display: none; }
-body[data-chat-collapsed="true"] .chat-collapse { line-height: 1.8; }
+body[data-chat-collapsed="true"] .chat-collapse { min-width: 0; max-width: 100%; overflow-wrap: anywhere; line-height: 1.8; }
 body[data-chat-dock="bottom"] { display: block; padding-bottom: 480px; }
 body[data-chat-dock="bottom"] .chat-panel { position: fixed; inset: auto 0 0; height: 460px; z-index: 2; border-top: 1px solid #cbd4c5; }
 body[data-chat-dock="bottom"] .chat-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 360px); grid-template-rows: auto auto minmax(0, 1fr) auto auto auto; gap: 8px 24px; }

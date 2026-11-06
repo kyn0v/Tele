@@ -77,7 +77,7 @@ We accept one running local service in exchange for stable URLs and conflict-saf
 
 ## Implementation reconciliation
 
-The main agent accepted this design before implementation. The implementation uses `src/schema.ts` for shared Zod schemas and `src/config.ts` for module-relative data paths. `src/boards.ts` owns synchronous persistence and exclusive data-directory locking. These are compatible module splits, not architecture changes.
+The main agent accepted this design before implementation. The implementation uses `src/schema.ts` for shared Zod schemas and `src/config.ts` for shared configuration, with persistent data defaulting to `~/.tele` outside the installed package and browser assets remaining module-relative. `src/boards.ts` owns synchronous persistence and exclusive data-directory locking. These are compatible module splits, not architecture changes.
 
 PUT requires a quoted numeric `If-Match` header. Every accepted PUT increments the revision, including identical content. `/` redirects to the seeded `demo` board with both comparisons. The production synthesis is also emitted as standalone `/assets/audio.js`.
 

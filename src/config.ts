@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
 
-export const defaultDataDir = fileURLToPath(new URL('../.data/', import.meta.url));
+export const defaultDataDir = join(homedir(), '.tele');
 export const defaultPublicDir = fileURLToPath(new URL('../dist/public/', import.meta.url));
 export function configuration(env: NodeJS.ProcessEnv = process.env) {
   return {

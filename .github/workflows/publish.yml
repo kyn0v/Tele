@@ -1,0 +1,98 @@
+name: Publish npm package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Validate stable release and main ancestry
+        id: release
+        run: node scripts/release.mjs preflight
+
+  verify:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ needs.preflight.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Require npm with trusted publishing support
+        run: |
+          version=$(npm --version)
+          if ! node -e 'const [major, minor, patch] = process.argv[1].split(".").map(Number); process.exit(major > 11 || major === 11 && (minor > 5 || minor === 5 && patch >= 1) ? 0 : 1)' "$version"; then
+            npm install --global npm@11 --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=30000
+          fi
+      - run: npm ci --no-audit --no-fund
+      - name: Verify and retain exact checked tarball
+        run: npm run verify:ci -- --artifact-dir "$RUNNER_TEMP/release-artifact"
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/playwright-browsers
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-package
+          path: ${{ runner.temp }}/release-artifact/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [preflight, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ needs.preflight.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Require npm with trusted publishing support
+        run: |
+          version=$(npm --version)
+          if ! node -e 'const [major, minor, patch] = process.argv[1].split(".").map(Number); process.exit(major > 11 || major === 11 && (minor > 5 || minor === 5 && patch >= 1) ? 0 : 1)' "$version"; then
+            npm install --global npm@11 --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=30000
+          fi
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0
+        with:
+          name: release-package
+          path: ${{ runner.temp }}/release-artifact
+      - name: Check artifact and publish once with OIDC
+        run: node scripts/release.mjs publish "$RUNNER_TEMP/release-artifact" "$RELEASE_VERSION" "$RELEASE_COMMIT"
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.preflight.outputs.commit }}
