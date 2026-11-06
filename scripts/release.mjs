@@ -107,7 +107,7 @@ export async function registryVersion(version, base = registry) {
     signal: AbortSignal.timeout(15_000), redirect: 'error', headers: { accept: 'application/json' },
   });
   const body = await response.json();
-  if (response.status === 404 && typeof body?.error === 'string' && body.error.length > 0) return undefined;
+  if (response.status === 404 && (body === `version not found: ${version}` || typeof body?.error === 'string' && body.error.length > 0)) return undefined;
   assert.equal(response.status, 200, `Registry lookup failed with HTTP ${response.status}`);
   assert.equal(body.name, name, 'Registry package mismatch');
   assert.equal(body.version, version, 'Registry version mismatch');
