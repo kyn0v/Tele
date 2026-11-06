@@ -1,5 +1,7 @@
 # Tele
 
+[![npm version](https://img.shields.io/npm/v/%40kyn0v%2Fpi-tele)](https://www.npmjs.com/package/@kyn0v/pi-tele)
+
 A Harness for Musical Interaction.
 
 Tele gives language models visual, audible, interactive music components and tools. The current proof of concept combines a guitar chord board with a conversation panel owned by the same live Pi session. Your agent updates the board, and you click chords to hear the result. Music theory explanations are one class of use cases, not the product's whole scope.
@@ -8,7 +10,17 @@ English | [简体中文](README.zh-CN.md)
 
 ## Install as a Pi package
 
-Requires Node.js 22.19 or newer, npm, and Pi 1.2. Until an npm release is published, build a local checkout and register its absolute path:
+Requires Node.js 22.19 or newer, npm, and Pi 1.2. Install the public npm package:
+
+```sh
+pi install npm:@kyn0v/pi-tele
+```
+
+npm tarballs contain prebuilt runtime and browser files and need no install scripts. Version 0.1.0 is public and listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). Its immutable packed README predates publication. This corrected README reaches npm with the next authorized version.
+
+In Pi, wait for active work to finish, then run `/reload` and `/tele harmony`. To avoid duplicate loading, use the installed package from outside the Tele checkout. Do not combine package registration with project auto-discovery or explicit `-e` loading.
+
+For local development, build a checkout and register its absolute path instead:
 
 ```sh
 cd /absolute/path/Tele
@@ -17,17 +29,7 @@ npm run build
 pi install /absolute/path/Tele
 ```
 
-Local registration does not install dependencies or build assets. Run the first three commands after cloning or updating the checkout. npm tarballs contain prebuilt runtime and browser files and need no install scripts.
-
-In Pi, wait for active work to finish, then run `/reload` and `/tele harmony`. To avoid duplicate loading, use the installed package from outside the Tele checkout. Do not combine package registration with project auto-discovery or explicit `-e` loading.
-
-The provisional npm name is `@kyn0v/pi-tele`. It is not published yet, and namespace ownership still needs confirmation. After a separately authorized release, installation will be:
-
-```sh
-pi install npm:@kyn0v/pi-tele
-```
-
-See [Publish a reviewed Pi package](docs/publishing.md) for the packed-artifact check and release procedure. No npm release is required for local use.
+Local registration does not install dependencies or build assets. Run the first three commands after cloning or updating the checkout. See [Publish a reviewed Pi package](docs/publishing.md) for CI, exact tested tarball export, and the owner-controlled release procedure.
 
 ## Continue your current Pi conversation beside a board
 
@@ -147,14 +149,10 @@ Run extension discovery in a fresh checkout with dependencies installed and no `
 
 ```sh
 npm ci
-npm run verify:extension
-npm test
-npm run build
-npx playwright install chromium --only-shell
-npm run verify:package
-npm run verify:chat:probe
-npm run verify:browser
+npm run verify:ci
 ```
+
+`verify:ci` runs extension discovery, tests, build, Chromium installation, package verification, the no-model chat probe, and browser verification in order. It rejects an existing `dist` without deleting it. GitHub Ubuntu installs Chromium's OS dependencies. Other Linux hosts need those dependencies installed separately. Set an absolute `PLAYWRIGHT_BROWSERS_PATH` to choose a shared browser cache. To retain only the exact tested tarball and metadata after the whole gate succeeds, add `-- --artifact-dir /absolute/path/new-directory`. See the [release instructions](docs/publishing.md) for prerequisites and artifact limits.
 
 `verify:extension` checks automatic project discovery in an offline Pi with temporary configuration, no saved session, and no `-e`. It sends no model prompt and does not generate `dist`.
 
@@ -185,7 +183,7 @@ The READMEs and browser-generated UI support English and Simplified Chinese. Oth
 - [Board API reference](docs/reference.md) is in English and records exact fields, limits, security, and persistence.
 - [Pi conversation reference](docs/chat-reference.md) is in Simplified Chinese and records private HTTP, semantic projection codes, and lifecycle limits.
 - [Board design](docs/design.md) and [conversation design](docs/chat-design.md) are in English.
-- [Publish a reviewed Pi package](docs/publishing.md) covers verification and a future authorized release.
+- [Publish a reviewed Pi package](docs/publishing.md) covers CI, exact artifact verification, and future authorized OIDC releases.
 - [Third-party notices](THIRD_PARTY_NOTICES.md) record dependencies and license boundaries.
 
 ## References

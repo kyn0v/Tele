@@ -36,7 +36,8 @@
     "verify:chat:probe": "node scripts/verify-chat-probe.mjs",
     "verify:chat:browser": "node scripts/verify-chat-browser.mjs",
     "prepack": "npm run build",
-    "verify:package": "node scripts/verify-package.mjs"
+    "verify:package": "node scripts/verify-package.mjs",
+    "verify:ci": "node scripts/verify-ci.mjs"
   },
   "dependencies": {
     "zod": "^4.1.12"

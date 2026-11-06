@@ -3,11 +3,16 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { closeOwnedCommands, runCommand } from './package-command.mjs';
+import { artifactDirectory, exportArtifact } from './release.mjs';
+const artifactDir = artifactDirectory(process.argv.slice(2));
+if (process.env.PLAYWRIGHT_BROWSERS_PATH !== undefined) {
+  assert(isAbsolute(process.env.PLAYWRIGHT_BROWSERS_PATH), 'PLAYWRIGHT_BROWSERS_PATH must be absolute');
+}
 const root = fileURLToPath(new URL('../', import.meta.url));
 const hostCli = join(root, 'node_modules/@earendil-works/pi-coding-agent/dist/cli.js');
 const directory = await mkdtemp(join(tmpdir(), 'tele-package-'));
@@ -21,6 +26,7 @@ const env = {
   HOME: home, USERPROFILE: home, TMPDIR: directory, TMP: directory, TEMP: directory,
   PI_CODING_AGENT_DIR: agent, PI_OFFLINE: '1', PI_TELEMETRY: '0',
   npm_config_cache: join(directory, 'npm-cache'), npm_config_userconfig: join(directory, 'npmrc'),
+  ...(process.env.PLAYWRIGHT_BROWSERS_PATH ? { PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH } : {}),
 };
 const runtimeFiles = [
   'dist/main.js', 'dist/cli.js', 'dist/pi-extension.js', 'dist/public/index.html',
@@ -265,8 +271,19 @@ try {
   if (closed.some(result => result.status === 'rejected')) {
     report.ok = false; report.failedStage = 'owned process cleanup'; process.exitCode = 1;
   } else {
-    await rm(directory, { recursive: true, force: true });
-    check('owned processes closed before temporary directory removal');
+    try {
+      if (report.ok && artifactDir) {
+        stage = 'export tested artifact';
+        const commit = (await run('git', ['rev-parse', 'HEAD'], { cwd: root })).stdout.trim();
+        report.exportedArtifact = await exportArtifact(artifact, artifactDir, commit);
+      }
+    } catch (error) {
+      report.ok = false; report.failedStage = stage; report.errorKind = error.name; report.errorCode = error.code;
+      process.exitCode = 1;
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+      check('owned processes closed before temporary directory removal');
+    }
   }
 }
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

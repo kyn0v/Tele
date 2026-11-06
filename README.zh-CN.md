@@ -1,5 +1,7 @@
 # Tele
 
+[![npm 版本](https://img.shields.io/npm/v/%40kyn0v%2Fpi-tele)](https://www.npmjs.com/package/@kyn0v/pi-tele)
+
 A Harness for Musical Interaction.
 
 为大模型提供可视、可听、可交互的音乐组件与操作接口。当前概念验证提供吉他和弦白板，以及由同一个活跃 Pi 会话拥有的对话面板。Agent 更新白板，你可以点击和弦听到结果。乐理讲解是其中一类用例，不是 Tele 的全部范围。
@@ -8,7 +10,17 @@ A Harness for Musical Interaction.
 
 ## 安装为 Pi 包
 
-需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。npm 版本尚未发布，请先构建本地 checkout，再注册绝对路径：
+需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。安装已公开发布的 npm 包：
+
+```sh
+pi install npm:@kyn0v/pi-tele
+```
+
+npm 压缩包包含已构建的运行文件与浏览器资源，不需要安装脚本。0.1.0 已公开发布，并列入 [Pi 包目录](https://pi.dev/packages/@kyn0v/pi-tele)。该版本内嵌的 README 写于发布前，已发布的包不可修改。本次修正文档将在下一次获授权的版本发布后进入 npm。
+
+在 Pi 中等当前工作结束，再运行 `/reload` 和 `/tele harmony`。为避免重复加载，请在 Tele checkout 外使用已注册的包。不要同时使用包注册、项目自动发现或显式 `-e` 加载。
+
+本地开发时，可以改为构建 checkout 并注册绝对路径：
 
 ```sh
 cd /absolute/path/Tele
@@ -17,17 +29,7 @@ npm run build
 pi install /absolute/path/Tele
 ```
 
-本地注册不会安装依赖或构建资源。克隆或更新 checkout 后，先执行前三条命令。npm 压缩包包含已构建的运行文件与浏览器资源，不需要安装脚本。
-
-在 Pi 中等当前工作结束，再运行 `/reload` 和 `/tele harmony`。为避免重复加载，请在 Tele checkout 外使用已注册的包。不要同时使用包注册、项目自动发现或显式 `-e` 加载。
-
-暂定 npm 包名为 `@kyn0v/pi-tele`，目前尚未发布，命名空间归属仍待确认。另行授权发布后，可使用：
-
-```sh
-pi install npm:@kyn0v/pi-tele
-```
-
-压缩包验证和发布步骤见[发布已审核的 Pi 包](docs/publishing.md)。本地使用不需要先发布到 npm。
+本地注册不会安装依赖或构建资源。克隆或更新 checkout 后，先执行前三条命令。CI、已验证压缩包的原样导出和由所有者控制的发布步骤见[发布已审核的 Pi 包](docs/publishing.md)。
 
 ## 在白板旁继续当前 Pi 对话
 
@@ -147,14 +149,10 @@ Tele 只监听 `127.0.0.1`。白板读取对能访问本机服务的调用方公
 
 ```sh
 npm ci
-npm run verify:extension
-npm test
-npm run build
-npx playwright install chromium --only-shell
-npm run verify:package
-npm run verify:chat:probe
-npm run verify:browser
+npm run verify:ci
 ```
+
+`verify:ci` 按顺序运行扩展发现、测试、构建、Chromium 安装、包验证、无模型对话探针和浏览器验证。已有 `dist` 时会失败，不会删除构建产物。GitHub Ubuntu 会安装 Chromium 的系统依赖，其他 Linux 主机须另行安装这些依赖。可用绝对路径 `PLAYWRIGHT_BROWSERS_PATH` 指定共用浏览器缓存。添加 `-- --artifact-dir /absolute/path/new-directory`，可在整套检查成功后原样保留已验证的压缩包和元数据。前置条件与产物边界见[发布说明](docs/publishing.md)。
 
 `verify:extension` 在离线 Pi 中检查项目自动发现，使用临时配置、不保存会话、不传 `-e`。它不发送模型输入，也不生成 `dist`。
 
@@ -185,7 +183,7 @@ README 和浏览器生成的界面支持英语和简体中文，其他文档并�
 - [白板 API 参考](docs/reference.md)为英语，记录精确字段、容量、安全和持久化。
 - [Pi 对话参考](docs/chat-reference.md)为简体中文，记录私有 HTTP、语义投影代码和生命周期边界。
 - [白板设计](docs/design.md)和[对话设计](docs/chat-design.md)为英语。
-- [发布已审核的 Pi 包](docs/publishing.md)说明验证和未来授权发布步骤。
+- [发布已审核的 Pi 包](docs/publishing.md)说明 CI、原样产物验证和未来获授权的 OIDC 发布步骤。
 - [第三方说明](THIRD_PARTY_NOTICES.md)记录依赖及许可证边界。
 
 ## References
