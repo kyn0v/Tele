@@ -1,7 +1,27 @@
 {
-  "name": "tele",
+  "name": "@kyn0v/pi-tele",
   "version": "0.1.0",
-  "private": true,
+  "description": "Interactive guitar chord boards and a private conversation panel for Pi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kyn0v/Tele.git"
+  },
+  "keywords": ["pi-package", "music", "guitar"],
+  "publishConfig": { "access": "public" },
+  "pi": { "extensions": ["./dist/pi-extension.js"] },
+  "files": [
+    "dist/main.js",
+    "dist/cli.js",
+    "dist/pi-extension.js",
+    "dist/public/",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "docs/",
+    "examples/*.json"
+  ],
   "type": "module",
   "engines": {
     "node": ">=22.19.0"
@@ -10,11 +30,13 @@
     "build": "tsc --noEmit && node scripts/build.mjs",
     "start": "node dist/main.js",
     "board": "node dist/cli.js",
-    "test": "tsx --test test/*.test.ts",
+    "test": "tsx --test test/*.test.ts test/*.test.mjs",
     "verify:extension": "node scripts/verify-project-extension.mjs",
     "verify:browser": "node scripts/verify-browser.mjs",
     "verify:chat:probe": "node scripts/verify-chat-probe.mjs",
-    "verify:chat:browser": "node scripts/verify-chat-browser.mjs"
+    "verify:chat:browser": "node scripts/verify-chat-browser.mjs",
+    "prepack": "npm run build",
+    "verify:package": "node scripts/verify-package.mjs"
   },
   "dependencies": {
     "zod": "^4.1.12"

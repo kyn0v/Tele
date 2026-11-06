@@ -12,9 +12,9 @@ Pi 的 `isIdle()` 不包含所有仍在等待的输入钩子。浏览器提交�
 
 退出、重载、切换会话、分叉和切换分支均撤销绑定。选择新会话后必须重新运行连接命令。扩展不扫描会话目录，不创建 `AgentSession`，不打开第二个会话文件写入者。数据目录仍由原来的 `BoardStore` 独占。
 
-扩展支持 `--tele-port <0..65535>` 和 `--tele-data <path>`。端口 `0` 请求系统分配空闲端口。未指定时使用 `TELE_PORT`、`TELE_DATA` 和项目默认路径。普通 CLI 的端口配置仍要求非零端口。
+扩展支持 `--tele-port <0..65535>` 和 `--tele-data <path>`。端口 `0` 请求系统分配空闲端口。标志优先于 `TELE_PORT` 和 `TELE_DATA`。未指定时端口为 4317，数据目录为安装包之外的 `~/.tele`。显式相对数据路径相对于进程工作目录解析。旧 checkout 的 `.data` 不会自动迁移，仍可通过绝对 `TELE_DATA` 指定。普通 CLI 的端口配置要求非零端口，并须与 Pi 使用相同的端口和数据目录。
 
-`.pi/extensions/tele.js` 是项目发现入口，通过 Pi 的 TypeScript 加载器导入 `src/pi-extension.ts`。安装依赖后可在没有 `dist` 的 checkout 中加载；白板的浏览器资源仍需构建。也可以运行 `pi -e /absolute/path/Tele/.pi/extensions/tele.js` 显式加载源码入口。构建后仍支持 `pi -e /absolute/path/Tele/dist/pi-extension.js`。各入口选一个，不要在同一个 Pi 中重复加载。Pi 和 TypeBox 使用宿主包；本地开发固定 Pi 1.2.0 和 TypeBox 1.3.27，运行代码没有全局绝对导入路径。
+`.pi/extensions/tele.js` 是项目发现入口，通过 Pi 的 TypeScript 加载器导入 `src/pi-extension.ts`。安装依赖后可在没有 `dist` 的 checkout 中加载；白板的浏览器资源仍需构建。也可以运行 `pi -e /absolute/path/Tele/.pi/extensions/tele.js` 显式加载源码入口。构建后仍支持 `pi -e /absolute/path/Tele/dist/pi-extension.js`。包注册通过清单只加载 `dist/pi-extension.js`，本地 checkout 注册前需要安装依赖并构建，npm 压缩包已包含构建产物。包注册、项目发现和显式加载只选一种，不要在同一个 Pi 中重复加载。Pi 和 TypeBox 使用宿主包；本地开发固定 Pi 1.2.0 和 TypeBox 1.3.27，运行代码没有全局绝对导入路径。
 
 ## 私有 HTTP 协议
 

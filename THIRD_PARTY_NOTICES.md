@@ -1,6 +1,6 @@
 # Third-party notices
 
-Tele uses these npm packages. Exact resolved versions and dependency trees are recorded in `package-lock.json`; each installed package includes its license text.
+Tele's source is licensed under the [MIT License](LICENSE), copyright 2026 Jian. Tele uses these npm packages. The source checkout's `package-lock.json` records exact development versions and dependency trees. Each installed dependency includes its own license text. Pi and TypeBox are supplied by the host rather than bundled in Tele.
 
 | Package | Use | License |
 | --- | --- | --- |
@@ -15,4 +15,4 @@ Tele uses these npm packages. Exact resolved versions and dependency trees are r
 
 [TwoMoons](https://github.com/moayuisuda/two-moons) is the original upstream product reference for connecting guitar fingering diagrams with browser playback. It is licensed GPL-3.0. The local reference checkout was the [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork. Tele uses it only as a reference and imports or copies none of its source, audio samples, images, or fonts. The UI, SVG diagrams, and Web Audio synthesis in this repository are independent implementations.
 
-These notices describe third-party dependencies and references. They do not assign a license to Tele's source. This repository currently has no Tele source license and retains `private: true` in `package.json` to prevent npm publication.
+These notices preserve third-party attribution. Tele's MIT license does not replace third-party licenses.
