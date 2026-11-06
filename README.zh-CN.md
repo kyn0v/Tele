@@ -2,25 +2,32 @@
 
 [![npm 版本](https://img.shields.io/npm/v/%40kyn0v%2Fpi-tele)](https://www.npmjs.com/package/@kyn0v/pi-tele)
 
-A Harness for Musical Interaction.
+供 AI agent 使用的交互式音乐工具。
 
-为大模型提供可视、可听、可交互的音乐组件与操作接口。当前概念验证提供吉他和弦白板，以及由同一个活跃 Pi 会话拥有的对话面板。Agent 更新白板，你可以点击和弦听到结果。乐理讲解是其中一类用例，不是 Tele 的全部范围。
+当前原型将吉他和弦白板连接到你的 Pi 对话。让 agent 修改和弦进行，再点击和弦试听。你可以用它探索音乐想法，也可以用它讲解和声。
 
 [English](README.md) | 简体中文
 
 ## 安装为 Pi 包
 
-需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。安装已公开发布的 npm 包：
+需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。安装 Tele：
 
 ```sh
 pi install npm:@kyn0v/pi-tele
 ```
 
-npm 压缩包包含已构建的运行文件与浏览器资源，不需要安装脚本。0.1.0 已公开发布，并列入 [Pi 包目录](https://pi.dev/packages/@kyn0v/pi-tele)。该版本内嵌的 README 写于发布前，已发布的包不可修改。本次修正文档将在下一次获授权的版本发布后进入 npm。
+包中已包含构建好的服务端和浏览器文件，不需要自行构建或启用安装脚本。也可以在 [Pi 包目录](https://pi.dev/packages/@kyn0v/pi-tele)找到 Tele。
 
-在 Pi 中等当前工作结束，再运行 `/reload` 和 `/tele harmony`。为避免重复加载，请在 Tele checkout 外使用已注册的包。不要同时使用包注册、项目自动发现或显式 `-e` 加载。
+请在 Tele 源码目录之外使用已安装的包，避免重复加载。在 Pi 中等当前工作结束，再输入：
 
-本地开发时，可以改为构建 checkout 并注册绝对路径：
+```text
+/reload
+/tele harmony
+```
+
+在两分钟内打开私有链接，完成浏览器配对。页面会显示当前分支的旧消息，你可以在白板旁继续对话。不要分享配对链接。运行 `/tele off` 可断开连接并恢复 Pi 原来的工具。
+
+如果使用本地源码，先构建，再注册绝对路径：
 
 ```sh
 cd /absolute/path/Tele
@@ -29,13 +36,11 @@ npm run build
 pi install /absolute/path/Tele
 ```
 
-本地注册不会安装依赖或构建资源。克隆或更新 checkout 后，先执行前三条命令。CI、已验证压缩包的原样导出和由所有者控制的发布步骤见[发布已审核的 Pi 包](docs/publishing.md)。
+本地注册不会安装依赖或构建文件。更新源码后，重新运行 `npm ci` 和 `npm run build`。包注册、项目自动发现和显式 `-e` 加载只选一种。
 
-## 在白板旁继续当前 Pi 对话
+## 在已有 Pi 会话中加载源码
 
-不注册包的源码开发可使用下面的项目发现方式。
-
-需要 Node.js 22.19 或更新版本、npm，以及 Pi 1.2。在 shell 中安装依赖并构建浏览器资源，不要同时启动独立服务。
+如果没有注册 Tele 包，Pi 可以从本项目中自动发现扩展。先在 shell 中安装依赖并构建浏览器文件。不要同时启动独立的 Tele 服务。
 
 ```sh
 npm ci
@@ -49,7 +54,7 @@ npm run build
 /tele harmony
 ```
 
-Pi 自动发现 `.pi/extensions/tele.js`，通过 Pi 的 TypeScript 加载器导入 `src/pi-extension.ts`。安装依赖后即可加载扩展，不依赖 `dist`；打开白板仍需先构建浏览器资源。`/tele harmony` 启动扩展拥有的本机服务，并提供一次性私有链接。两分钟内打开链接完成配对。页面显示当前 Pi 分支的旧对话，可以继续该对话、查看流式回复，并更新同一块白板。
+Pi 会发现 `.pi/extensions/tele.js`，由它导入 `src/pi-extension.ts`。扩展可以在没有 `dist` 时加载，但打开白板仍需构建浏览器文件。`/tele harmony` 启动本机服务，并给出一次性配对链接。
 
 从其他目录启动一个新的 Pi 时，可以显式加载源码入口。
 
@@ -61,7 +66,7 @@ pi -e /absolute/path/Tele/.pi/extensions/tele.js
 
 启动 `pi` 会创建新进程，不会附着到另一个活跃 CLI。不要打开仍被另一个 Pi 使用的会话文件。要继续原来的活跃会话，请在原 Pi 中使用 `/reload` 和 `/tele`。
 
-连接期间，音乐模式临时只允许模型调用 `tele_board`。其他扩展的确认框仍需在终端处理，浏览器不能代为批准。在 Pi 中执行 `/tele off` 可撤销连接、停止扩展拥有的服务、等待运行结束，并恢复原工具。Pi 本身不会退出，已经提交的白板修改不会回滚。
+连接期间，模型只能调用 `tele_board`。其他扩展的确认框仍需在终端处理，浏览器不能代为批准。`/tele off` 会撤销连接、停止 Tele 服务、等待本轮运行结束，并恢复原来的工具。Pi 不会退出，已保存的白板修改也不会回滚。
 
 如果独立服务已经占用该端口或数据目录，由其所有者先停止服务，再连接 Pi。Tele 不会终止其他服务。普通白板 URL 不授予私有历史或对话控制权。不要分享配对链接。
 
@@ -69,15 +74,17 @@ pi -e /absolute/path/Tele/.pi/extensions/tele.js
 
 在白板页眉的 **语言**控件中选择 **English** 或 **简体中文**。选择器在对话面板外，面板收起或使用手机时仍可访问。
 
-没有保存的选择时，浏览器首选语言以 `zh` 开头则使用简体中文，否则使用英语。`tele.locale` 保存选择。无效存储值按浏览器规则回退。如果存储被禁用，当前页面仍可切换语言。
+Tele 将选择保存在 `tele.locale` 中。如果没有有效的记录，浏览器首选语言以 `zh` 开头时使用简体中文，否则使用英语。即使存储被禁用，当前页面也能切换语言。
 
-语言切换更新程序生成的控件、状态提示和无障碍标签。它不翻译用户或助手消息、会话名、白板标题与说明、和弦符号。已有白板和 Pi 历史不会被改写。新的空实例使用英语教学示例，已有中文示例文件在两种界面语言下都保留中文内容。
+切换语言会更新控件、状态提示和无障碍标签，不会翻译消息、会话名、白板内容或和弦符号，也不会改写已保存的数据。新的数据目录使用英语示例。中文示例内容在两种界面语言下都保持中文。
 
-对话面板默认在右侧，可以切到左侧或底部，也可以收起。位置和折叠偏好会保存。手机使用底部面板，不覆盖桌面偏好。语言和布局切换保留输入框节点与草稿。Enter 发送，Shift+Enter 换行，输入法组字期间不会提交。草稿只留在当前页面，刷新后丢失。
+对话面板默认在右侧，可以移到左侧或底部，也可以收起。Tele 会记住这些选择。手机使用底部面板，不改变桌面布局偏好。
 
-## 启动独立听觉白板
+切换语言或布局不会替换输入框或清空草稿。Enter 发送，Shift+Enter 换行；输入法组字时按 Enter 不会发送。刷新页面会丢失草稿。
 
-白板播放和 CLI 更新不需要 Pi。在 shell 中运行：
+## 不使用 Pi 运行白板
+
+不连接 Pi 也能播放和更新白板。在 Tele 源码目录中运行：
 
 ```sh
 npm ci
@@ -102,7 +109,7 @@ npm run board -- catalogue
 
 首次 `put` 创建白板，返回含 `id`、`revision`、`content`、`url` 的 JSON。`--open` 调用系统浏览器。更新后的 URL 仍是 `/b/harmony`，原页面通过 SSE 接收完整替换，无需刷新。
 
-每次写入都需要当前 revision。修改前先读取白板，保留需要的分组，再完整替换内容。遇到 409 冲突时重新读取并调整，不要盲目覆盖。Agent 只需要 JSON 输出时，使用 `npm run --silent board -- ...`，避免 npm 的脚本名称输出。
+每次写入都会替换整块白板，并要求提供当前 revision。修改前先读取白板，保留不需要改动的分组。遇到 409 冲突时，先读取最新内容再重试。使用 `npm run --silent board -- ...` 可只输出 JSON，不显示 npm 的脚本名称。
 
 可以给 agent 这样的指令：
 
@@ -120,7 +127,7 @@ CLI 写入使用本机数据目录里的 capability 文件，浏览器不持有�
 
 扩展、独立服务和 CLI 共用默认数据目录 `~/.tele`，位于安装包之外。重新安装包不会替换白板或本机写入 capability。显式相对 `TELE_DATA` 路径仍相对于 shell 当前工作目录解析。不同目录中的命令应使用同一个绝对路径。
 
-旧 checkout 数据不会被自动发现、移动或删除。如需继续使用已有白板，请在启动 Pi 和 CLI 前，为两者设置 `TELE_DATA=/absolute/path/old-checkout/.data`。
+Tele 不会自动查找、移动或删除旧源码目录中的数据。如需继续使用已有白板，请在启动 Pi 和 CLI 前，为两者设置 `TELE_DATA=/absolute/path/old-checkout/.data`。
 
 ```sh
 TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm start
@@ -131,28 +138,30 @@ TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm run board -- get demo
 
 Pi 扩展也接受 `--tele-port` 和 `--tele-data`，优先于对应环境变量。端口 `0` 请求系统分配空闲端口。独立 CLI 的 `TELE_PORT` 必须是非零端口。Pi 使用自定义端口时，CLI 命令须设置相同的 `TELE_PORT`。Pi 使用 `--tele-data` 时，CLI 须通过 `TELE_DATA` 指向同一目录。
 
-## 隐私与概念验证边界
+## 隐私与限制
 
 Tele 只监听 `127.0.0.1`。白板读取对能访问本机服务的调用方公开，写入需要本机 capability。私有对话读取和命令需要配对浏览器 cookie，限定一个绑定，带有 `HttpOnly`、`SameSite=Strict` 和八小时有效期。配对链接两分钟后失效，只能使用一次。断开、重载、会话替换或分支替换会撤销绑定。本机 HTTP 没有 TLS，cookie 不带 `Secure`。不要把服务暴露到公网。
 
-配对允许浏览器读取所选分支的用户和助手文本。Tele 排除思考内容、系统提示、工具参数与原始结果、压缩摘要和扩展私有消息。普通用户或助手文本中的秘密无法被可靠过滤。显示投影最多一百项、约 256 KiB，用户和助手每项文本最多 32,768 个 UTF-16 代码单元。附件不显示，原始 Pi 记录仍是唯一的对话数据库。
+配对后的浏览器可以读取所选分支的用户和助手文本。Tele 不显示思考内容、系统提示、工具参数与原始结果、压缩摘要或扩展私有消息，但无法可靠过滤普通消息中的秘密。浏览器最多显示 100 项、约 256 KiB 的内容，每项用户或助手文本最多 32,768 个 UTF-16 代码单元。不显示附件，对话历史仍只保存在 Pi 中。
 
-提交回执不证明模型已经接受输入或完成回复。未观察到或结果不确定的提交保留草稿，绝不自动重发。重新连接只读取状态，不回放命令。停止请求限定当前运行，不撤销已提交的白板修改，也不处理终端确认框。
+收到提交回执，不代表模型已接受消息或完成回复。如果 Tele 无法确认结果，它会保留草稿，不会自动重发。重连只读取当前状态，不会重放命令。停止回复不会撤销已保存的白板修改，也不会处理终端确认框。
 
 音乐模式不是操作系统沙箱。已信任扩展仍以 Pi 用户权限运行。Tele 限制模型工具调用，不限制扩展任意代码。不要加载不可信扩展。
 
-当前 POC 只支持本机、标准六弦调弦、固定和弦库及完整文档替换。原创 Web Audio 合成近似拨弦声音，不是真实吉他录音。没有变调夹、自定义调弦、和弦编辑器、节奏编排、云端账号或 MCP 插件。本机文件原子替换支持正常重启后的持久化，不保证断电耐久性或网络文件系统恢复。
+当前原型支持本机使用、标准六弦调弦、固定和弦库和整块白板更新。Web Audio 合成近似拨弦的声音，不使用吉他录音。暂不支持变调夹、自定义调弦、和弦编辑、节奏编排、云端账号或 MCP 插件。白板可以在正常重启后恢复。文件原子替换不保证断电后或网络文件系统上的数据恢复。
 
 ## 验证改动
 
-在已安装依赖、尚无 `dist` 的新 checkout 中，先验证项目扩展发现，再构建：
+从没有 `dist` 的全新源码目录开始：
 
 ```sh
 npm ci
 npm run verify:ci
 ```
 
-`verify:ci` 按顺序运行扩展发现、测试、构建、Chromium 安装、包验证、无模型对话探针和浏览器验证。已有 `dist` 时会失败，不会删除构建产物。GitHub Ubuntu 会安装 Chromium 的系统依赖，其他 Linux 主机须另行安装这些依赖。可用绝对路径 `PLAYWRIGHT_BROWSERS_PATH` 指定共用浏览器缓存。添加 `-- --artifact-dir /absolute/path/new-directory`，可在整套检查成功后原样保留已验证的压缩包和元数据。前置条件与产物边界见[发布说明](docs/publishing.md)。
+`verify:ci` 依次运行扩展发现、测试、构建、Chromium 安装、包检查、无模型对话探针和浏览器检查。如果已有 `dist`，它会拒绝运行，不会删除构建产物。GitHub Ubuntu 会安装 Chromium 的系统依赖，其他 Linux 主机需要另行安装。
+
+可用绝对路径 `PLAYWRIGHT_BROWSERS_PATH` 指定共用浏览器缓存。添加 `-- --artifact-dir /absolute/path/new-directory`，可在全部检查通过后保留测试过的压缩包和元数据。详见[发布说明](docs/publishing.md)。
 
 `verify:extension` 在离线 Pi 中检查项目自动发现，使用临时配置、不保存会话、不传 `-e`。它不发送模型输入，也不生成 `dist`。
 
@@ -166,7 +175,7 @@ npm run verify:ci
 
 截图、WAV 和报告保存在本机 `.audit/browser/` 与 `.audit/chat/`。脚本使用临时数据和端口，只关闭自己的进程，并删除临时数据。
 
-可选的真实模型验证最多发送三个用户输入，会产生 Pi 已配置模型的用量。它与无模型探针分开运行：
+可选的真实模型检查最多发送三条用户消息，会消耗你配置的 Pi 模型额度，可能产生费用：
 
 ```sh
 npm run verify:chat:browser
@@ -181,13 +190,15 @@ TELE_TEST_MODEL=github-copilot/gpt-6-luna npm run verify:chat:browser
 README 和浏览器生成的界面支持英语和简体中文，其他文档并未全部翻译。
 
 - [白板 API 参考](docs/reference.md)为英语，记录精确字段、容量、安全和持久化。
-- [Pi 对话参考](docs/chat-reference.md)为简体中文，记录私有 HTTP、语义投影代码和生命周期边界。
+- [Pi 对话参考](docs/chat-reference.md)为简体中文，说明私有 HTTP 接口、消息显示规则和会话生命周期。
 - [白板设计](docs/design.md)和[对话设计](docs/chat-design.md)为英语。
-- [发布已审核的 Pi 包](docs/publishing.md)说明 CI、原样产物验证和未来获授权的 OIDC 发布步骤。
+- [发布说明](docs/publishing.md)包含 CI、包验证和 OIDC 发布步骤。
 - [第三方说明](THIRD_PARTY_NOTICES.md)记录依赖及许可证边界。
 
-## References
+## 参考与许可
 
-[TwoMoons](https://github.com/moayuisuda/two-moons) 是将吉他指法与可播放音高关联的原始上游产品参考，上游采用 GPL-3.0。本地参考 checkout 是 [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork，主要归属仍为原始上游。
+[TwoMoons](https://github.com/moayuisuda/two-moons) 将吉他指法图与可播放音高关联，采用 GPL-3.0 许可证。Tele 参考了它的产品设计，本地使用的是 [kyn0v/two-moons fork](https://github.com/kyn0v/two-moons)。
 
-Tele 仅将 TwoMoons 作为参考，没有导入或复制其源码、音频样本或其他素材。本项目的 HTML、CSS、指板绘制与合成均为独立实现。依赖及许可证说明见[第三方说明](THIRD_PARTY_NOTICES.md)。Tele 源码采用 [MIT 许可证](LICENSE)，版权归属 2026 Jian。第三方许可证保持不变。
+Tele 没有使用 TwoMoons 的源码、音频样本或其他素材。HTML、CSS、指板绘制和音频合成均单独编写。依赖与许可证说明见[第三方说明](THIRD_PARTY_NOTICES.md)。
+
+Tele 采用 [MIT 许可证](LICENSE)，版权归属 2026 Jian。第三方许可证保持不变。

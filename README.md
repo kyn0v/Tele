@@ -2,25 +2,32 @@
 
 [![npm version](https://img.shields.io/npm/v/%40kyn0v%2Fpi-tele)](https://www.npmjs.com/package/@kyn0v/pi-tele)
 
-A Harness for Musical Interaction.
+Interactive music tools for AI agents.
 
-Tele gives language models visual, audible, interactive music components and tools. The current proof of concept combines a guitar chord board with a conversation panel owned by the same live Pi session. Your agent updates the board, and you click chords to hear the result. Music theory explanations are one class of use cases, not the product's whole scope.
+The current prototype pairs a guitar chord board with your live Pi conversation. Ask the agent to change a chord progression, then click the chords to hear it. Use the board to explore musical ideas or explain harmony.
 
 English | [简体中文](README.zh-CN.md)
 
 ## Install as a Pi package
 
-Requires Node.js 22.19 or newer, npm, and Pi 1.2. Install the public npm package:
+You need Node.js 22.19 or newer, npm, and Pi 1.2. Install Tele:
 
 ```sh
 pi install npm:@kyn0v/pi-tele
 ```
 
-npm tarballs contain prebuilt runtime and browser files and need no install scripts. Version 0.1.0 is public and listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). Its immutable packed README predates publication. This corrected README reaches npm with the next authorized version.
+The package includes built server and browser files. You do not need to build it or enable installation scripts. Tele is also listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele).
 
-In Pi, wait for active work to finish, then run `/reload` and `/tele harmony`. To avoid duplicate loading, use the installed package from outside the Tele checkout. Do not combine package registration with project auto-discovery or explicit `-e` loading.
+Use the installed package outside the Tele source directory to avoid loading it twice. In Pi, wait for active work to finish, then enter:
 
-For local development, build a checkout and register its absolute path instead:
+```text
+/reload
+/tele harmony
+```
+
+Open the private link within two minutes to pair your browser. The page shows the current branch's earlier messages and lets you continue the conversation beside the board. Do not share the link. Run `/tele off` to disconnect and restore Pi's previous tools.
+
+To use a local source copy instead, build it before registering its absolute path:
 
 ```sh
 cd /absolute/path/Tele
@@ -29,13 +36,11 @@ npm run build
 pi install /absolute/path/Tele
 ```
 
-Local registration does not install dependencies or build assets. Run the first three commands after cloning or updating the checkout. See [Publish a reviewed Pi package](docs/publishing.md) for CI, exact tested tarball export, and the owner-controlled release procedure.
+Local registration does not install dependencies or build files. Repeat `npm ci` and `npm run build` after updating the source. Use only one loading method: package registration, project discovery, or an explicit `-e` path.
 
-## Continue your current Pi conversation beside a board
+## Load from source in an existing Pi session
 
-For source development without package registration, use the project-discovery route below.
-
-Requires Node.js 22.19 or newer, npm, and Pi 1.2. Install dependencies and build browser assets in a shell. Do not start the standalone service at the same time.
+If you have not registered Tele as a package, Pi can discover it in this project. Install dependencies and build the browser files in a shell. Do not start a standalone Tele server at the same time.
 
 ```sh
 npm ci
@@ -49,7 +54,7 @@ If Pi is already running in this project, wait for its current work and subtasks
 /tele harmony
 ```
 
-Pi discovers `.pi/extensions/tele.js`, which imports `src/pi-extension.ts` through Pi's TypeScript loader. The extension can load after dependency installation without `dist`. Opening a board still requires built browser assets. `/tele harmony` starts an owned loopback service and provides a one-time private link. Open it within two minutes to pair. The page shows prior messages on the current Pi branch and lets you continue that conversation, watch streaming replies, and update the same board.
+Pi discovers `.pi/extensions/tele.js`, which imports `src/pi-extension.ts`. The extension can load without `dist`, but opening the board requires built browser files. `/tele harmony` starts the local server and gives you a one-time pairing link.
 
 To launch a new Pi from another directory, explicitly load the source entrypoint.
 
@@ -61,7 +66,7 @@ After building, `pi -e /absolute/path/Tele/dist/pi-extension.js` is also support
 
 Launching `pi` creates a new process. It does not attach to another live CLI. Do not open a session file that another Pi still owns. To continue an existing live session, use `/reload` and `/tele` in that original Pi.
 
-While attached, music mode temporarily allows only `tele_board` for model tool calls. Other extensions' confirmation dialogs still require the terminal. The browser cannot approve them. Run `/tele off` in Pi to revoke the connection, stop the extension-owned service, wait for settlement, and restore the previous tools. Pi stays running. Committed board edits are not rolled back.
+While connected, the model can call only `tele_board`. Other extensions' confirmation dialogs still require the terminal; the browser cannot approve them. `/tele off` revokes the connection, stops Tele's server, waits for the run to finish, and restores the previous tools. Pi stays running, and saved board edits remain.
 
 If a standalone server already owns the port or data directory, its owner must stop it before attaching Pi. Tele never kills another service. Ordinary board URLs do not grant access to private history or conversation controls. Do not share pairing links.
 
@@ -69,15 +74,17 @@ If a standalone server already owns the port or data directory, its owner must s
 
 Use **Language** in the board header to select **English** or **简体中文**. The selector is outside the conversation panel and remains available when that panel is collapsed or on a phone.
 
-Without a saved choice, a primary browser language beginning with `zh` selects Simplified Chinese. All other languages select English. `tele.locale` stores your choice. Invalid saved values fall back to the browser rule. If storage is blocked, language selection still works for the current page.
+Tele saves your choice in `tele.locale`. Without a valid saved choice, it uses Simplified Chinese if your primary browser language starts with `zh`, or English otherwise. If storage is blocked, you can still change the current page's language.
 
-Language changes update generated controls, status messages, and accessibility labels. They do not translate user or assistant messages, session names, board titles or descriptions, or chord symbols. Existing boards and Pi histories are never rewritten. New empty instances use an English teaching demo. Existing Chinese example files remain Chinese content in either UI language.
+Switching languages changes controls, status messages, and accessibility labels. It does not translate messages, session names, board content, or chord symbols, or rewrite saved data. New data directories start with an English demo. Chinese example content stays Chinese in either interface language.
 
-The conversation panel docks right by default. Choose left or bottom, or collapse it. Docking and collapse preferences persist. Phones use a bottom panel without overwriting the desktop preference. Language changes and layout changes preserve the composer node and draft. Enter sends, Shift+Enter inserts a newline, and IME composition does not submit. Drafts stay only on the current page and are lost on refresh.
+The conversation panel starts on the right. You can move it left or below the board, or collapse it. Tele remembers these choices. Phones use a bottom panel without changing your desktop preference.
 
-## Run a standalone listening board
+Changing language or layout does not replace the input field or clear your draft. Enter sends, Shift+Enter adds a line, and Enter during IME composition does not send. Refreshing the page loses the draft.
 
-Pi is optional for board playback and CLI updates. In a shell, run:
+## Run without Pi
+
+You can play and update boards without Pi. From the Tele source directory, run:
 
 ```sh
 npm ci
@@ -102,7 +109,7 @@ npm run board -- catalogue
 
 The first `put` creates the board and returns JSON containing `id`, `revision`, `content`, and `url`. `--open` invokes the system browser. The URL stays `/b/harmony` after updates. The existing page receives full replacements through SSE without a refresh.
 
-Every write requires the current revision. Before updating, read the board, keep any groups you want to preserve, and replace the complete content. On a 409 conflict, read again and reconcile rather than blindly overwrite. Use `npm run --silent board -- ...` when your agent needs only JSON output, without npm's script banner.
+Each write replaces the whole board and requires its current revision. Read the board first and keep any groups you do not want to change. On a 409 conflict, read the latest board before retrying. Use `npm run --silent board -- ...` for JSON output without npm's script banner.
 
 An instruction you can give your agent:
 
@@ -120,7 +127,7 @@ CLI writes use the capability file in the local data directory. The browser does
 
 The extension, standalone service, and CLI share `~/.tele` as the default data directory, outside the installed package. Reinstalling the package does not replace boards or the local write capability. An explicit relative `TELE_DATA` path remains relative to your shell's working directory. Use an absolute path when commands run from different directories.
 
-Old checkout data is not discovered, moved, or deleted. To keep using existing boards, set `TELE_DATA=/absolute/path/old-checkout/.data` for both Pi and the CLI before starting them.
+Tele does not find, move, or delete data from an old source directory automatically. To keep using existing boards, set `TELE_DATA=/absolute/path/old-checkout/.data` for both Pi and the CLI before starting them.
 
 ```sh
 TELE_DATA=/tmp/my-tele TELE_PORT=4320 npm start
@@ -131,28 +138,30 @@ Only one service can own a data directory, even on different ports. A crash can 
 
 The Pi extension also accepts `--tele-port` and `--tele-data`, which override the matching environment variables. Port `0` asks the system for a free port. The standalone CLI's `TELE_PORT` requires a nonzero port. If Pi uses a custom port, set the same `TELE_PORT` for CLI commands. If Pi uses `--tele-data`, give the CLI the same directory through `TELE_DATA`.
 
-## Privacy and proof-of-concept limits
+## Privacy and limitations
 
 Tele binds only to `127.0.0.1`. Board reads are public to callers that can access that local service. Board writes require a local capability. Private chat reads and commands require a paired browser cookie, scoped to one binding, with `HttpOnly`, `SameSite=Strict`, and an eight-hour expiry. Pairing links expire after two minutes and can be used once. Detach, reload, and session or branch replacement revoke the binding. Local HTTP has no TLS, and its cookie is not `Secure`. Do not expose the service to the internet.
 
-Pairing allows that browser to read the selected branch's user and assistant text. Tele excludes thinking, system prompts, tool arguments and raw results, compaction summaries, and extension-private messages. Secrets written in ordinary user or assistant text cannot be reliably filtered. The projection shows at most 100 items and about 256 KiB, with user and assistant text limited to 32,768 UTF-16 code units per item. Attachments are not displayed. The original Pi record remains the only transcript database.
+A paired browser can read user and assistant text from the selected branch. Tele excludes thinking, system prompts, tool arguments and raw results, compaction summaries, and extension-private messages. It cannot reliably filter secrets from ordinary messages. The browser shows at most 100 items and about 256 KiB, with up to 32,768 UTF-16 code units per user or assistant item. It does not display attachments. Pi remains the only store of the conversation history.
 
-A submission receipt does not prove model acceptance or completion. Unobserved or uncertain submissions retain the draft and are never automatically resent. Reconnecting reads status without replaying commands. Stop requests target the current run and do not undo committed board changes or resolve terminal dialogs.
+A submission receipt does not mean the model has accepted or answered the message. If Tele cannot confirm what happened, it keeps the draft and does not resend it. Reconnecting reads the current state without replaying commands. Stopping a reply does not undo saved board changes or answer terminal dialogs.
 
 Music mode is not an operating-system sandbox. Trusted extensions still run with Pi's user permissions. Tele restricts model tool calls, not arbitrary extension code. Do not load untrusted extensions.
 
-This POC supports local use, standard six-string tuning, a fixed chord catalogue, and full document replacement. Its original Web Audio synthesis approximates plucked strings. It is not recorded guitar audio. There is no capo, alternate tuning, chord editor, rhythm arrangement, cloud account, or MCP plugin. Local-file atomic replacement supports normal restart persistence, not a guarantee of power-loss durability or network-filesystem recovery.
+The prototype supports local use, standard six-string tuning, a fixed chord catalogue, and whole-board updates. Web Audio generates a plucked-string sound; it does not play recorded guitar samples. Tele does not support capos, alternate tunings, chord editing, rhythm arrangement, cloud accounts, or an MCP plugin. Boards persist across normal restarts. Atomic file replacement does not guarantee recovery after power loss or on network filesystems.
 
 ## Verify changes
 
-Run extension discovery in a fresh checkout with dependencies installed and no `dist`, before building:
+Start from a fresh source copy without `dist`:
 
 ```sh
 npm ci
 npm run verify:ci
 ```
 
-`verify:ci` runs extension discovery, tests, build, Chromium installation, package verification, the no-model chat probe, and browser verification in order. It rejects an existing `dist` without deleting it. GitHub Ubuntu installs Chromium's OS dependencies. Other Linux hosts need those dependencies installed separately. Set an absolute `PLAYWRIGHT_BROWSERS_PATH` to choose a shared browser cache. To retain only the exact tested tarball and metadata after the whole gate succeeds, add `-- --artifact-dir /absolute/path/new-directory`. See the [release instructions](docs/publishing.md) for prerequisites and artifact limits.
+`verify:ci` runs extension discovery, tests, build, Chromium installation, package checks, the no-model chat probe, and browser checks. It refuses to run if `dist` exists and does not delete build output. GitHub Ubuntu installs Chromium's system dependencies. On other Linux hosts, install those dependencies separately.
+
+Set an absolute `PLAYWRIGHT_BROWSERS_PATH` to use a shared browser cache. Add `-- --artifact-dir /absolute/path/new-directory` to keep the tested tarball and metadata after all checks pass. See [publishing instructions](docs/publishing.md) for details.
 
 `verify:extension` checks automatic project discovery in an offline Pi with temporary configuration, no saved session, and no `-e`. It sends no model prompt and does not generate `dist`.
 
@@ -166,7 +175,7 @@ npm run verify:ci
 
 Screenshots, WAV files, and reports are local artifacts under `.audit/browser/` and `.audit/chat/`. Scripts use temporary data and ports, close only their own processes, and remove temporary data.
 
-The optional model proof makes up to three user prompts and incurs usage on the configured Pi model. It is separate from the no-model probe:
+The optional real-model check sends up to three user prompts to your configured Pi model and may incur charges:
 
 ```sh
 npm run verify:chat:browser
@@ -181,13 +190,15 @@ It checks earlier-conversation recall, streaming browser continuation, actual bo
 The READMEs and browser-generated UI support English and Simplified Chinese. Other documents are not all translated.
 
 - [Board API reference](docs/reference.md) is in English and records exact fields, limits, security, and persistence.
-- [Pi conversation reference](docs/chat-reference.md) is in Simplified Chinese and records private HTTP, semantic projection codes, and lifecycle limits.
+- [Pi conversation reference](docs/chat-reference.md) is in Simplified Chinese and describes the private HTTP API, displayed messages, and session lifecycle.
 - [Board design](docs/design.md) and [conversation design](docs/chat-design.md) are in English.
-- [Publish a reviewed Pi package](docs/publishing.md) covers CI, exact artifact verification, and future authorized OIDC releases.
+- [Publishing instructions](docs/publishing.md) cover CI, package verification, and OIDC releases.
 - [Third-party notices](THIRD_PARTY_NOTICES.md) record dependencies and license boundaries.
 
 ## References
 
-[TwoMoons](https://github.com/moayuisuda/two-moons) is the original upstream product reference for associating guitar fingering with playable pitches. Its upstream license is GPL-3.0. The local reference checkout was the [kyn0v/two-moons](https://github.com/kyn0v/two-moons) fork. Primary attribution belongs to the original upstream.
+[TwoMoons](https://github.com/moayuisuda/two-moons) connects guitar fingering diagrams to playable pitches and is licensed under GPL-3.0. Tele used its design as a reference through the [kyn0v/two-moons fork](https://github.com/kyn0v/two-moons).
 
-Tele uses TwoMoons only as a reference. It imports or copies none of its source, audio samples, or other assets. This project's HTML, CSS, diagrams, and synthesis are independent implementations. See [third-party notices](THIRD_PARTY_NOTICES.md). Tele's source is licensed under the [MIT License](LICENSE), copyright 2026 Jian. Third-party licenses remain unchanged.
+Tele does not use TwoMoons source code, audio samples, or other assets. Its HTML, CSS, diagrams, and synthesis were written separately. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Tele is licensed under the [MIT License](LICENSE), copyright 2026 Jian. Third-party licenses remain unchanged.

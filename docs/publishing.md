@@ -1,8 +1,8 @@
 # Publish a reviewed Pi package
 
-`@kyn0v/pi-tele@0.1.0` is public on npm and listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). The first release was manually authorized and published. Its registry tarball was installed through real Pi npm package management, checked in the browser and CLI, and reinstalled without losing board data. It has no automated OIDC provenance claim.
+Tele is published as `@kyn0v/pi-tele` on npm and listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). This guide covers verification and GitHub Actions releases.
 
-The README embedded in npm version 0.1.0 still says the package is unpublished. Published package bytes are immutable. The corrected source README reaches npm and the gallery with the next authorized version, not by republishing 0.1.0.
+Version 0.1.0 was published manually and has no OIDC provenance claim. Its packed README contains outdated installation text. Published package bytes cannot be replaced; documentation fixes require a new version.
 
 ## Verify a candidate locally
 
@@ -31,9 +31,9 @@ Packed-consumer verification installs production dependencies with lifecycle scr
 
 ## Configure the owner-controlled release gate
 
-These settings remain owner work. Adding workflow files neither configures npm trust nor creates a release.
+Maintainers configure these settings before publishing. Adding workflow files does not enable npm trust or create a release.
 
-1. Merge the reviewed workflow changes into the public `kyn0v/Tele` repository and observe a successful GitHub Ubuntu CI run. Actions is enabled, but the workflow has not yet been proved on GitHub by local verification.
+1. Merge the reviewed workflow changes into the public `kyn0v/Tele` repository and confirm that GitHub Ubuntu CI passes. Local tests do not replace this check.
 2. Create the GitHub environment named exactly `npm`. Configure required owner approval and a protected release-tag policy. Restrict who can create or move release tags through repository rules. The workflow does not configure or guarantee those protections. Confirm the environment's current protection rules in GitHub before releasing.
 3. In the npm package's **Settings**, add a GitHub Actions **Trusted Publisher** with these case-sensitive fields:
    - **Organization or user** is `kyn0v`.
