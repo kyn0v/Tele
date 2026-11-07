@@ -101,10 +101,10 @@ export async function verifyArtifact(directory, expected) {
   return metadata;
 }
 
-export async function registryVersion(version, base = registry) {
+export async function registryVersion(version, base = registry, timeout = 15_000) {
   assert(stable.test(version), 'Invalid registry version');
   const response = await fetch(`${base}/${encodeURIComponent(name)}/${version}`, {
-    signal: AbortSignal.timeout(15_000), redirect: 'error', headers: { accept: 'application/json' },
+    signal: AbortSignal.timeout(timeout), redirect: 'error', headers: { accept: 'application/json' },
   });
   const body = await response.json();
   if (response.status === 404 && (body === `version not found: ${version}` || typeof body?.error === 'string' && body.error.length > 0)) return undefined;
@@ -118,9 +118,12 @@ export async function registryVersion(version, base = registry) {
 export async function publishArtifact(directory, expected, {
   base = registry,
   publish = tarball => runCommand('npm', ['publish', tarball, '--access', 'public', '--ignore-scripts', `--registry=${registry}`], { timeout: 120_000 }),
-  attempts = 5,
-  retryDelay = 2000,
+  attempts = Infinity,
+  retryDelay = 5000,
+  confirmationTimeout = 300_000,
 } = {}) {
+  assert(Number.isInteger(confirmationTimeout) && confirmationTimeout > 0 && confirmationTimeout <= 300_000,
+    'Confirmation timeout must be between 1 and 300000 milliseconds');
   const metadata = await verifyArtifact(directory, expected);
   const existing = await registryVersion(metadata.version, base);
   if (existing !== undefined) {
@@ -128,20 +131,28 @@ export async function publishArtifact(directory, expected, {
     return 'already published with identical integrity';
   }
   let publishError;
-  try { await publish(join(directory, metadata.filename)); }
-  catch (error) { publishError = error; }
+  try {
+    const output = await publish(join(directory, metadata.filename));
+    if (output?.stdout) console.log(output.stdout.trimEnd());
+    if (output?.stderr) console.error(output.stderr.trimEnd());
+  } catch (error) { publishError = error; }
+  const deadline = performance.now() + confirmationTimeout;
   let lookupError;
   for (let attempt = 0; attempt < attempts; attempt++) {
+    const remaining = Math.ceil(deadline - performance.now());
+    if (remaining <= 0) break;
     let integrity;
-    try { integrity = await registryVersion(metadata.version, base); }
+    try { integrity = await registryVersion(metadata.version, base, Math.min(15_000, remaining)); }
     catch (error) { lookupError = error; }
     if (integrity !== undefined) {
       assert.equal(integrity, metadata.integrity, 'Published version has different integrity');
       return 'published and registry integrity verified';
     }
-    if (attempt + 1 < attempts) await delay(retryDelay);
+    if (attempt + 1 < attempts) await delay(Math.max(0, Math.min(retryDelay, deadline - performance.now())));
   }
-  throw new AggregateError([publishError, lookupError].filter(Boolean), 'Publication not confirmed. Inspect registry before retrying; npm publish was attempted only once.');
+  const pending = new Error(`Registry confirmation is still pending for ${name}@${metadata.version}; matching integrity was not observed within the confirmation limits.`);
+  const message = publishError ? 'Publication not confirmed.' : 'npm publish succeeded, but registry confirmation is still pending.';
+  throw new AggregateError([publishError, lookupError, pending].filter(Boolean), `${message} Inspect registry before retrying; npm publish was attempted only once.`);
 }
 
 async function main() {

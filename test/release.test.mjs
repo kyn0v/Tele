@@ -225,6 +225,98 @@ test('only a genuine 404 permits one publish, followed by bounded registry readb
   assert.equal(reads, 3);
 });
 
+test('successful publication waits beyond five missing registry readbacks with the default policy', async t => {
+  const { directory, metadata } = await artifactFixture(t);
+  let publications = 0;
+  let pendingReads = 0;
+  const { base } = await registryFixture(t, (_, response) => {
+    if (!publications || pendingReads++ < 7) reply(response, 404, { error: 'version not found' });
+    else reply(response, 200, registryBody(metadata.integrity));
+  });
+  const result = await publishArtifact(directory, expected, {
+    base, retryDelay: 0,
+    publish: async () => { publications++; },
+  });
+  assert.equal(result, 'published and registry integrity verified');
+  assert.equal(publications, 1);
+});
+
+test('successful npm output preserves processing and provenance notices', async t => {
+  const { directory, metadata } = await artifactFixture(t);
+  let publications = 0;
+  const { base } = await registryFixture(t, (_, response) => {
+    if (!publications) reply(response, 404, { error: 'version not found' });
+    else reply(response, 200, registryBody(metadata.integrity));
+  });
+  const stdout = [];
+  const stderr = [];
+  t.mock.method(console, 'log', message => stdout.push(message));
+  t.mock.method(console, 'error', message => stderr.push(message));
+  assert.equal(await publishArtifact(directory, expected, {
+    base, retryDelay: 0,
+    publish: async () => {
+      publications++;
+      return { stdout: `+ ${name}@${version}\n`, stderr: 'npm notice Package processing is pending\nnpm notice Provenance statement generated\n' };
+    },
+  }), 'published and registry integrity verified');
+  assert.deepEqual(stdout, [`+ ${name}@${version}`]);
+  assert.deepEqual(stderr, ['npm notice Package processing is pending\nnpm notice Provenance statement generated']);
+  assert.equal(publications, 1);
+});
+
+test('successful publish with exhausted readbacks reports pending confirmation, not an empty error', async t => {
+  const { directory } = await artifactFixture(t);
+  const { base } = await registryFixture(t, (_, response) => reply(response, 404, { error: 'version not found' }));
+  let publications = 0;
+  await assert.rejects(publishArtifact(directory, expected, {
+    base, attempts: 2, retryDelay: 0,
+    publish: async () => { publications++; },
+  }), error => {
+    assert(error instanceof AggregateError);
+    assert.match(error.message, /npm publish succeeded.*registry confirmation is still pending/);
+    assert.match(error.message, /Inspect registry before retrying/);
+    assert(error.errors.some(cause => /matching integrity was not observed/.test(cause.message)));
+    return true;
+  });
+  assert.equal(publications, 1);
+});
+
+test('confirmation deadline bounds long retry sleeps', { timeout: 2000 }, async t => {
+  const { directory } = await artifactFixture(t);
+  const { base } = await registryFixture(t, (_, response) => reply(response, 404, { error: 'version not found' }));
+  let publications = 0;
+  await assert.rejects(publishArtifact(directory, expected, {
+    base, retryDelay: 5000, confirmationTimeout: 80,
+    publish: async () => { publications++; },
+  }), /npm publish succeeded.*registry confirmation is still pending/);
+  assert.equal(publications, 1);
+});
+
+test('confirmation deadline aborts an in-flight registry response body', { timeout: 2000 }, async t => {
+  const { directory } = await artifactFixture(t);
+  let publications = 0;
+  let aborted;
+  const closed = new Promise(resolve => { aborted = resolve; });
+  const { base } = await registryFixture(t, (_, response) => {
+    if (!publications) reply(response, 404, { error: 'version not found' });
+    else {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.write('{');
+      response.on('close', aborted);
+    }
+  });
+  await assert.rejects(publishArtifact(directory, expected, {
+    base, retryDelay: 0, confirmationTimeout: 80,
+    publish: async () => { publications++; },
+  }), error => {
+    assert.match(error.message, /npm publish succeeded.*registry confirmation is still pending/);
+    assert(error.errors.some(cause => cause.name === 'TimeoutError' || cause.name === 'AbortError'));
+    return true;
+  });
+  await closed;
+  assert.equal(publications, 1);
+});
+
 test('uncertain or conflicting publication fails without repeating npm publish', async t => {
   const { directory } = await artifactFixture(t);
   let lookups = 0;
