@@ -189,7 +189,17 @@ const id = BoardIdSchema.safeParse(location.pathname.slice(3));
 if (!id.success) {
   setTitle(() => locale.messages.invalidAddress); setConnection('disconnected');
 } else {
-  mountChat(id.data);
+  const boardId = id.data;
+  void (async () => {
+    // Older Pi/standalone servers keep their existing chat UI. DSH's board-only
+    // capability explicitly suppresses it, without changing saved preferences.
+    let capabilities: { chatPanel?: boolean } | undefined;
+    try {
+      const response = await fetch('/api/capabilities');
+      if (response.ok) capabilities = await response.json() as { chatPanel?: boolean };
+    } catch { /* The board stream reports connection failures independently. */ }
+    if (capabilities?.chatPanel !== false) mountChat(boardId);
+  })();
   const events = new EventSource(`/api/boards/${id.data}/events`);
   events.addEventListener('open', () => setConnection('connected'));
   events.addEventListener('snapshot', event => {

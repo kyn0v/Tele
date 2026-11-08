@@ -4,9 +4,33 @@
 
 供 AI agent 使用的交互式音乐工具。
 
-当前原型将吉他和弦白板连接到你的 Pi 对话。让 agent 修改和弦进行，再点击和弦试听。你可以用它探索音乐想法，也可以用它讲解和声。
+Tele v0.2.0 新增 DSH 吉他和弦白板插件，保留 Pi 白板和私有续聊功能。让 agent 修改和弦进行，再点击和弦试听。DSH 插件不提供私有续聊、音乐模式或 DSH 内嵌面板。
+
+下面的 npm 安装说明固定使用 v0.2.0。安装前确认 npm 已提供该版本。
 
 [English](README.md) | 简体中文
+
+## 安装 DSH 白板插件
+
+Tele v0.2.0 仅支持 DSH `0.2.2-rc.1`，不宣称兼容其他 DSH 版本。
+
+在 DSH **插件管理器**中安装 npm 包 `@kyn0v/pi-tele@0.2.0`。也可以让 DSH agent 调用 `plugin_manager`，使用 `action: install_bundle`、`target: @kyn0v/pi-tele@0.2.0`。npm 包已包含构建好的服务端和浏览器文件，不需要源码目录、自行构建或启用安装脚本。检查返回的激活结果；`failed` 或 `restart-required` 不代表插件已经运行。
+
+### 从本地源码开发
+
+如果改用本地源码，先在 shell 中准备：
+
+```sh
+cd /absolute/path/Tele
+npm ci
+npm run build
+```
+
+通过插件管理器安装 `/absolute/path/Tele`，或将该绝对目录作为 agent 的 `install_bundle` target。更新源码后重新构建，并遵循应用返回的重载或重启结果。linked 插件可以通过 profile 重新组合刷新，不必每次都重启。
+
+无论使用哪种安装方式，都可以让 DSH agent 调用 `tele_board` 查看和弦库，按 `boardId` 读取白板，再用当前 `expectedRevision` 和完整 `content` 创建或替换。手动在 **DSH 所在主机的浏览器**打开返回 URL；Tele 不会自动打开。白板是独立本机网页，不是 DSH 内嵌面板，也不能读取或发送 DSH 对话。DSH 白板模式返回 `chat: false`、`chatPanel: false`，页面不显示 Pi 续聊面板；Pi 和 standalone 页面行为不变。
+
+DSH 默认使用 `dataDir: ~/.tele/dsh`（展开为绝对 home 路径）和 `port: 0`（系统分配空闲端口）。通过插件管理器配置非空绝对 `dataDir` 和 0 至 65535 的整数端口。同一 profile 中使用该插件的会话共享白板，能访问本机服务的调用方可以读取；不要写入私有对话或秘密。插件作为可信代码以宿主用户权限运行，不提供操作系统沙箱。工具契约与真实宿主清单见 [DSH 接入参考](docs/dsh.md)。`npm run verify:dsh` 执行构建和独立 fixture 检查；`npm run verify:dsh:live -- http://127.0.0.1:PORT/b/board` 对已有真实白板进行只读浏览器检查。两者不能证明真实 DSH 工具调用链或插件管理器 GUI 元数据已通过验证。
 
 ## 安装为 Pi 包
 
@@ -125,7 +149,7 @@ CLI 写入使用本机数据目录里的 capability 文件，浏览器不持有�
 
 ## 使用不同端口或数据目录
 
-扩展、独立服务和 CLI 共用默认数据目录 `~/.tele`，位于安装包之外。重新安装包不会替换白板或本机写入 capability。显式相对 `TELE_DATA` 路径仍相对于 shell 当前工作目录解析。不同目录中的命令应使用同一个绝对路径。
+Pi 扩展、独立服务和 CLI 共用默认数据目录 `~/.tele`，位于安装包之外。DSH 插件则默认使用 `~/.tele/dsh`，从插件配置读取 `dataDir`/`port`，不使用 Pi flags 或 `TELE_DATA`/`TELE_PORT`。重新安装包不会替换白板或本机写入 capability。显式相对 `TELE_DATA` 路径仍相对于 shell 当前工作目录解析。不同目录中的命令应使用同一个绝对路径。
 
 Tele 不会自动查找、移动或删除旧源码目录中的数据。如需继续使用已有白板，请在启动 Pi 和 CLI 前，为两者设置 `TELE_DATA=/absolute/path/old-checkout/.data`。
 
@@ -140,7 +164,7 @@ Pi 扩展也接受 `--tele-port` 和 `--tele-data`，优先于对应环境变量
 
 ## 隐私与限制
 
-Tele 只监听 `127.0.0.1`。白板读取对能访问本机服务的调用方公开，写入需要本机 capability。私有对话读取和命令需要配对浏览器 cookie，限定一个绑定，带有 `HttpOnly`、`SameSite=Strict` 和八小时有效期。配对链接两分钟后失效，只能使用一次。断开、重载、会话替换或分支替换会撤销绑定。本机 HTTP 没有 TLS，cookie 不带 `Secure`。不要把服务暴露到公网。
+Tele 只监听 `127.0.0.1`。白板读取对能访问本机服务的调用方公开，写入需要本机 capability。以下私有对话规则仅适用于 Pi 连接；DSH 插件不启动对话桥接，也不限制 DSH 的其他工具。Pi 私有对话读取和命令需要配对浏览器 cookie，限定一个绑定，带有 `HttpOnly`、`SameSite=Strict` 和八小时有效期。配对链接两分钟后失效，只能使用一次。断开、重载、会话替换或分支替换会撤销绑定。本机 HTTP 没有 TLS，cookie 不带 `Secure`。不要把服务暴露到公网。
 
 配对后的浏览器可以读取所选分支的用户和助手文本。Tele 不显示思考内容、系统提示、工具参数与原始结果、压缩摘要或扩展私有消息，但无法可靠过滤普通消息中的秘密。浏览器最多显示 100 项、约 256 KiB 的内容，每项用户或助手文本最多 32,768 个 UTF-16 代码单元。不显示附件，对话历史仍只保存在 Pi 中。
 
@@ -165,7 +189,7 @@ npm run verify:ci
 
 `verify:extension` 在离线 Pi 中检查项目自动发现，使用临时配置、不保存会话、不传 `-e`。它不发送模型输入，也不生成 `dist`。
 
-`verify:package` 构建并打包 Tele，在只安装生产依赖且禁用生命周期脚本的环境中安装压缩包，再将安装目录注册到一次性离线 Pi。它检查浏览器私有配对、全部已分发浏览器资源、已安装 CLI 的写入与冲突、默认 home 数据目录，以及重装后的持久化。Pi 和 Playwright 只由开发宿主提供。此验证覆盖压缩包和 Pi 本地注册，不覆盖 Pi 的 npm 下载器。它不会发布包或修改你的 Pi 设置。
+`verify:package` 构建并打包 Tele，在只安装生产依赖且禁用生命周期脚本的环境中安装压缩包，再将安装目录注册到一次性离线 Pi。它检查浏览器私有配对、全部已分发浏览器资源、已安装 CLI 的写入与冲突、默认 home 数据目录，以及重装后的持久化。Pi 和 Playwright 只由开发宿主提供。它还要求压缩包包含 DSH 入口、bundle patch、英中文元数据、图标及 DSH 清单声明。结构化测试 context 会仅用生产依赖加载压缩包中的 DSH 入口，检查网页资源和清理行为；这项可移植性检查不运行真实 DSH 工具注册表。包验证覆盖压缩包和 Pi 本地注册，不覆盖 Pi 的 npm 下载器或真实 DSH 激活。它不会发布包或修改你的 Pi 设置。真实 DSH 验收单独执行，见 [DSH 验证清单](docs/dsh.md#verification-status-and-checklist)。
 
 `npm test` 使用真实 HTTP 服务、临时目录和 CLI 子进程，覆盖乐理数据、校验、冲突、持久化、锁、SSE、私有对话授权、语义提示、语言词典覆盖和回退。单元测试不能替代浏览器验证。
 
@@ -189,6 +213,7 @@ TELE_TEST_MODEL=github-copilot/gpt-6-luna npm run verify:chat:browser
 
 README 和浏览器生成的界面支持英语和简体中文，其他文档并未全部翻译。
 
+- [DSH 接入参考](docs/dsh.md)说明 npm 和本地安装、配置、白板工具及单独的真实宿主验证清单。
 - [白板 API 参考](docs/reference.md)为英语，记录精确字段、容量、安全和持久化。
 - [Pi 对话参考](docs/chat-reference.md)为简体中文，说明私有 HTTP 接口、消息显示规则和会话生命周期。
 - [白板设计](docs/design.md)和[对话设计](docs/chat-design.md)为英语。

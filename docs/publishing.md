@@ -1,6 +1,8 @@
-# Publish a reviewed Pi package
+# Publish a reviewed DSH and Pi package
 
-Tele is published as `@kyn0v/pi-tele` on npm and listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). This guide covers verification and GitHub Actions releases.
+Tele uses the npm package name `@kyn0v/pi-tele` and is listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). Version 0.2.0 adds DSH support while keeping Pi support. This guide covers candidate verification and GitHub Actions releases.
+
+Treat v0.2.0 as a release candidate until its release checks pass and registry publication is confirmed. Public release authorization does not mean that publication or the release CI has completed. Confirm the exact version's registry integrity after publishing. npm publication does not automatically list Tele in the DSH official market.
 
 Version 0.1.0 was published manually and has no OIDC provenance claim. Its packed README contains outdated installation text. Published package bytes cannot be replaced; documentation fixes require a new version.
 
@@ -27,7 +29,17 @@ The directory appears only after the entire gate succeeds and owned subprocesses
 
 `verify:package` also accepts `--artifact-dir` to retain its exact tarball after its own successful checks and cleanup. That narrower command does not prove the subsequent chat and browser suites passed. Without this option, temporary tarballs are removed as before.
 
-Packed-consumer verification installs production dependencies with lifecycle scripts disabled and host peers omitted. The development Pi host registers the installed directory in a disposable offline profile. It checks extension loading, private browser pairing, all shipped assets, CLI conflicts, default home storage, and persistence after reinstall. This local test does not exercise Pi's npm downloader. Check that the report says `ok: true` and `modelRuns: 0`.
+Packed-consumer verification installs production dependencies with lifecycle scripts disabled and host peers omitted. It checks the DSH entrypoint, bundle patch, locales, icon, and manifest declarations in the actual tarball. A structural test context loads the packed DSH entrypoint with only production dependencies. It checks board writes, production assets, disabled chat, and cleanup. This portability smoke test does not run the real DSH tool registry or inspect the Plugin Manager UI.
+
+The development Pi host registers the installed directory in a disposable offline profile. It checks extension loading, private browser pairing, all shipped assets, CLI conflicts, default home storage, and persistence after reinstall. This local test does not exercise Pi's npm downloader. Check that the report says `ok: true` and `modelRuns: 0`.
+
+## Verify the DSH candidate on a real host
+
+Use DSH `0.2.2-rc.1`. Install the reviewed local source directory through the Plugin Manager, then follow the [DSH acceptance checklist](dsh.md#verification-status-and-checklist). Record activation, catalogue and board calls, revision conflicts, SSE updates, stop cleanup, and persistence after reactivation. Check that other DSH tools remain available.
+
+Use the URL returned by a real `tele_board` call for `npm run verify:dsh:live -- <url>`. That read-only browser test does not create or update boards or prove the DSH tool pipeline. It also does not verify the Plugin Manager's displayed title, description, or icon. Check those in the actual GUI. Keep unavailable GUI checks and subjective listening separate from passed checks.
+
+Run these checks for the reviewed release candidate. Earlier local acceptance is useful evidence, but it does not replace CI or acceptance of the final version and artifact.
 
 ## Configure the owner-controlled release gate
 
@@ -54,7 +66,9 @@ For future public OIDC publications from this public repository, npm automatical
 3. Review the read-only verification job. Preflight reads the event as JSON using trusted main code, resolves the tag to an immutable commit, and checks its ancestry before any tagged code runs. Verification checks out that SHA and runs the same `verify:ci` gate as pull requests and main pushes. Only a successful gate uploads its checked artifact.
 4. Approve the `npm` environment deployment after reviewing the release and artifact. Only the dependent publish job has `id-token: write`. It downloads the artifact from that same workflow run and runs a builtins-only helper from the verified SHA. It performs no `npm ci`, project dependency install, build, pack, or package lifecycle hook.
 5. Confirm the job's registry integrity result. It checks metadata, release version and commit, SHA-512 bytes, and the tar manifest before using `npm publish <tarball> --access public --ignore-scripts --registry=https://registry.npmjs.org/`. Only a parsed HTTP 404 from the exact version endpoint allows a new publish. Auth, transport, malformed responses, and server failures do not count as absence.
-6. In a disposable Pi profile, install `pi install npm:@kyn0v/pi-tele@<version>`, reload Pi, and run `/tele harmony`. Check the browser, CLI, persisted boards, and gallery version independently of packed-consumer acceptance.
+6. In DSH `0.2.2-rc.1`, install `@kyn0v/pi-tele@<version>` through the Plugin Manager. The agent equivalent is `plugin_manager` with `action: install_bundle` and the same spec as `target`. Check actual activation and board operations. The published package includes built files and needs no source build or installation scripts.
+7. In a disposable Pi profile, install `pi install npm:@kyn0v/pi-tele@<version>`, reload Pi, and run `/tele harmony`. Check the browser, CLI, persisted boards, and gallery version independently of packed-consumer acceptance.
+8. Treat any DSH official-market listing as a separate publication step. npm availability alone does not prove that listing exists.
 
 An existing exact version is a no-op only when registry integrity matches the checked tarball. A mismatch fails. npm can exit successfully before the exact version endpoint returns the package. The 0.1.1 release remained absent through five confirmation reads over about eight seconds, then appeared with matching artifact integrity and GitHub Actions provenance. Do not republish 0.1.1.
 
@@ -64,4 +78,4 @@ If npm succeeds but confirmation expires, the helper reports that registry confi
 
 Release concurrency prevents simultaneous release runs and does not cancel the active run. GitHub concurrency does not guarantee a FIFO queue and can replace a pending run. If several releases are created together, the owner must check that each intended release ran.
 
-The workflows never push, merge, create tags or releases, or alter account settings. The manifest has no executable `bin`. Pi loads `dist/pi-extension.js`, and standalone entries remain `dist/main.js` and `dist/cli.js`. Pi and TypeBox remain host peers, and Zod remains the runtime dependency. Git checkouts still require dependencies and a build.
+The workflows never push, merge, create tags or releases, or alter account settings. The manifest has no executable `bin`. DSH loads `dist/dsh-extension.js` through the package root or `./dsh` export and the bundle patch. Pi retains `pi.extensions` and the `./pi` export for `dist/pi-extension.js`. Standalone entries remain `dist/main.js` and `dist/cli.js`. Pi and TypeBox are optional host peers, so a DSH-only installation does not need to install Pi. Zod remains the runtime dependency. Git checkouts still require dependencies and a build. Published packages include the build output.

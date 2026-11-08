@@ -11,9 +11,9 @@ import { createChatAccess } from './chat-server.js';
 import type { ChatAdapter } from './chat-schema.js';
 import { HttpError, json, readBody } from './http.js';
 
-export async function startServer(options: { dataDir: string; port?: number; publicDir?: string; seedDemo?: boolean; chat?: ChatAdapter }) {
+export async function startServer(options: { dataDir: string; port?: number; publicDir?: string; seedDemo?: boolean; chat?: ChatAdapter; boardOnly?: boolean }) {
   const store = openStore(options.dataDir);
-  const chat = options.chat ? createChatAccess(options.chat) : undefined;
+  const chat = options.chat && !options.boardOnly ? createChatAccess(options.chat) : undefined;
   const subscribers = new Map<string, Set<ServerResponse>>();
   const publicDir = options.publicDir ?? defaultPublicDir;
   let port = options.port ?? 4317;
@@ -64,7 +64,7 @@ export async function startServer(options: { dataDir: string; port?: number; pub
       && request.headers['sec-fetch-dest'] === 'document'
       && (url.pathname === '/' || boardPage);
     if (request.headers['sec-fetch-site'] === 'cross-site' && !documentNavigation) throw new HttpError(403, 'Cross-site request rejected');
-    if (method === 'GET' && url.pathname === '/api/capabilities') { json(response, 200, { chat: Boolean(chat) }); return; }
+    if (method === 'GET' && url.pathname === '/api/capabilities') { json(response, 200, options.boardOnly ? { chat: false, chatPanel: false } : { chat: Boolean(chat) }); return; }
     if (await chat?.handle(request, response, url)) return;
     if (method === 'GET' && url.pathname === '/') {
       response.writeHead(302, { Location: `/b/${demoId}`, 'Cache-Control': 'no-store' }); response.end(); return;

@@ -1,20 +1,47 @@
 {
   "name": "@kyn0v/pi-tele",
-  "version": "0.1.1",
-  "description": "Interactive guitar chord boards and a private conversation panel for Pi",
+  "version": "0.2.0",
+  "description": "Interactive guitar chord boards for DSH and Pi, with an optional Pi conversation panel",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/kyn0v/Tele.git"
   },
-  "keywords": ["pi-package", "music", "guitar"],
-  "publishConfig": { "access": "public" },
-  "pi": { "extensions": ["./dist/pi-extension.js"] },
+  "keywords": [
+    "pi-package",
+    "music",
+    "guitar"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./dist/pi-extension.js"
+    ]
+  },
+  "exports": {
+    ".": "./dist/dsh-extension.js",
+    "./dsh": "./dist/dsh-extension.js",
+    "./pi": "./dist/pi-extension.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
   "files": [
     "dist/main.js",
     "dist/cli.js",
     "dist/pi-extension.js",
+    "dist/dsh-extension.js",
     "dist/public/",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
     "README.md",
     "README.zh-CN.md",
     "LICENSE",
@@ -24,7 +51,8 @@
   ],
   "type": "module",
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.19.0",
+    "dsh": "0.2.2-rc.1"
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
@@ -37,6 +65,8 @@
     "verify:chat:browser": "node scripts/verify-chat-browser.mjs",
     "prepack": "npm run build",
     "verify:package": "node scripts/verify-package.mjs",
+    "verify:dsh": "npm run build && tsx --test test/dsh.test.ts",
+    "verify:dsh:live": "node scripts/verify-dsh-live.mjs",
     "verify:ci": "node scripts/verify-ci.mjs"
   },
   "dependencies": {
@@ -45,6 +75,14 @@
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "typebox": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "1.2.0",

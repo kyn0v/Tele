@@ -4,9 +4,33 @@
 
 Interactive music tools for AI agents.
 
-The current prototype pairs a guitar chord board with your live Pi conversation. Ask the agent to change a chord progression, then click the chords to hear it. Use the board to explore musical ideas or explain harmony.
+Tele v0.2.0 adds a DSH plugin for playable guitar chord boards and keeps Pi's board and private conversation support. Ask the agent to change a chord progression, then click the chords to hear it. The DSH plugin does not provide private chat, music mode, or an embedded DSH panel.
+
+The npm instructions below target v0.2.0. Confirm that this version is available in the registry before installing.
 
 English | [简体中文](README.zh-CN.md)
+
+## Install the DSH board plugin
+
+Tele v0.2.0 supports exactly DSH `0.2.2-rc.1`. It does not claim compatibility with other DSH versions.
+
+In DSH's **Plugin Manager**, install the npm package spec `@kyn0v/pi-tele@0.2.0`. You can also ask your DSH agent to call `plugin_manager` with `action: install_bundle` and `target: @kyn0v/pi-tele@0.2.0`. The npm package includes built server and browser files. You do not need a source checkout, a build, or installation scripts. Inspect the returned activation outcome. A failed or restart-required result does not mean the plugin is running.
+
+### Develop from local source
+
+To install a local checkout instead, prepare it in a shell:
+
+```sh
+cd /absolute/path/Tele
+npm ci
+npm run build
+```
+
+Use the Plugin Manager to install `/absolute/path/Tele`, or give that absolute directory as the agent's `install_bundle` target. After source updates, rebuild and follow the application's reported reload or restart outcome. Linked plugins may reload through profile recomposition without a restart.
+
+With either installation, ask the DSH agent to use `tele_board` to inspect the catalogue, read a board by `boardId`, then create or replace it with the current `expectedRevision` and complete `content`. Open the returned URL manually in a browser on the DSH host; Tele does not open it automatically. The browser is a separate local page, not a panel embedded in DSH, and it cannot read or send DSH chat. Its board-only capabilities (`chat: false`, `chatPanel: false`) hide the Pi conversation panel; Pi and standalone page behavior remains unchanged.
+
+DSH defaults to `dataDir: ~/.tele/dsh` (expanded to an absolute home path) and `port: 0` (a free port). Configure a nonempty absolute `dataDir` and an integer port from 0 through 65535 through the Plugin Manager. Boards are shared across sessions using the plugin in the profile and readable by callers that can access its local service; do not store private conversation or secrets in them. The trusted plugin runs with the host user's permissions and does not provide an operating-system sandbox. See the [DSH integration reference](docs/dsh.md) for the tool contract and real-host checklist. `npm run verify:dsh` builds and runs independent fixture checks; `npm run verify:dsh:live -- http://127.0.0.1:PORT/b/board` checks an existing live board read-only. Neither establishes the real DSH tool pipeline or Plugin Manager GUI metadata verification.
 
 ## Install as a Pi package
 
@@ -125,7 +149,7 @@ CLI writes use the capability file in the local data directory. The browser does
 
 ## Use a different port or data directory
 
-The extension, standalone service, and CLI share `~/.tele` as the default data directory, outside the installed package. Reinstalling the package does not replace boards or the local write capability. An explicit relative `TELE_DATA` path remains relative to your shell's working directory. Use an absolute path when commands run from different directories.
+The Pi extension, standalone service, and CLI share `~/.tele` as the default data directory, outside the installed package. The DSH plugin instead defaults to `~/.tele/dsh` and takes `dataDir`/`port` from its plugin configuration, not Pi flags or `TELE_DATA`/`TELE_PORT`. Reinstalling the package does not replace boards or the local write capability. An explicit relative `TELE_DATA` path remains relative to your shell's working directory. Use an absolute path when commands run from different directories.
 
 Tele does not find, move, or delete data from an old source directory automatically. To keep using existing boards, set `TELE_DATA=/absolute/path/old-checkout/.data` for both Pi and the CLI before starting them.
 
@@ -140,7 +164,7 @@ The Pi extension also accepts `--tele-port` and `--tele-data`, which override th
 
 ## Privacy and limitations
 
-Tele binds only to `127.0.0.1`. Board reads are public to callers that can access that local service. Board writes require a local capability. Private chat reads and commands require a paired browser cookie, scoped to one binding, with `HttpOnly`, `SameSite=Strict`, and an eight-hour expiry. Pairing links expire after two minutes and can be used once. Detach, reload, and session or branch replacement revoke the binding. Local HTTP has no TLS, and its cookie is not `Secure`. Do not expose the service to the internet.
+Tele binds only to `127.0.0.1`. Board reads are public to callers that can access that local service. Board writes require a local capability. The private-chat rules below apply to the Pi connection only; the DSH plugin starts no chat bridge and restricts no other DSH tools. Pi private chat reads and commands require a paired browser cookie, scoped to one binding, with `HttpOnly`, `SameSite=Strict`, and an eight-hour expiry. Pairing links expire after two minutes and can be used once. Detach, reload, and session or branch replacement revoke the binding. Local HTTP has no TLS, and its cookie is not `Secure`. Do not expose the service to the internet.
 
 A paired browser can read user and assistant text from the selected branch. Tele excludes thinking, system prompts, tool arguments and raw results, compaction summaries, and extension-private messages. It cannot reliably filter secrets from ordinary messages. The browser shows at most 100 items and about 256 KiB, with up to 32,768 UTF-16 code units per user or assistant item. It does not display attachments. Pi remains the only store of the conversation history.
 
@@ -165,7 +189,7 @@ Set an absolute `PLAYWRIGHT_BROWSERS_PATH` to use a shared browser cache. Add `-
 
 `verify:extension` checks automatic project discovery in an offline Pi with temporary configuration, no saved session, and no `-e`. It sends no model prompt and does not generate `dist`.
 
-`verify:package` builds and packs Tele, installs the tarball with production dependencies and lifecycle scripts disabled, and registers the installed directory in a disposable offline Pi. It checks private browser pairing, every shipped browser asset, installed CLI writes and conflicts, default home storage, and persistence after reinstall. Pi and Playwright come only from the development host. This tests the tarball and Pi's local registration, not its npm downloader. It does not publish or change your Pi settings.
+`verify:package` builds and packs Tele, installs the tarball with production dependencies and lifecycle scripts disabled, and registers the installed directory in a disposable offline Pi. It checks private browser pairing, every shipped browser asset, installed CLI writes and conflicts, default home storage, and persistence after reinstall. Pi and Playwright come only from the development host. It also requires the DSH entrypoint, bundle patch, English and Chinese metadata, icon, and DSH manifest declarations in the packed artifact. A structural test context loads the packed DSH entrypoint with production dependencies, checks its assets, and checks cleanup. This portability smoke test does not run the real DSH tool registry. The package checks cover the tarball and Pi's local registration, not Pi's npm downloader or real DSH activation. It does not publish or change your Pi settings. Real DSH acceptance is performed separately; see the [DSH verification checklist](docs/dsh.md#verification-status-and-checklist).
 
 `npm test` uses real HTTP services, temporary directories, and CLI processes. It covers music data, validation, conflicts, persistence, locks, SSE, private chat access, semantic notices, and locale coverage and fallback. Unit tests do not replace browser verification.
 
@@ -189,6 +213,7 @@ It checks earlier-conversation recall, streaming browser continuation, actual bo
 
 The READMEs and browser-generated UI support English and Simplified Chinese. Other documents are not all translated.
 
+- [DSH integration reference](docs/dsh.md) describes npm and local installation, configuration, the board tool, and the separate real-host verification checklist.
 - [Board API reference](docs/reference.md) is in English and records exact fields, limits, security, and persistence.
 - [Pi conversation reference](docs/chat-reference.md) is in Simplified Chinese and describes the private HTTP API, displayed messages, and session lifecycle.
 - [Board design](docs/design.md) and [conversation design](docs/chat-design.md) are in English.
