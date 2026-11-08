@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Tele 音乐白板",
+    "description": "让 DSH agent 创建和更新吉他和弦白板，在本机浏览器中试听。不访问私有对话。"
+  }
+}

@@ -1,0 +1,4 @@
+- insert:
+    - id: tele-board
+      name: '@kyn0v/pi-tele'
+      config: {}

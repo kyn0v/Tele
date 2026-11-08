@@ -52,13 +52,19 @@ export function openStore(dataDir: string) {
       get(id: BoardId) { return boards.get(id); },
       put(id: BoardId, expected: Revision, content: Content): Board {
         if (closed) throw new Error('Store is closed');
+        id = BoardIdSchema.parse(id);
+        expected = RevisionSchema.parse(expected);
         const previous = boards.get(id);
         const actual = previous?.revision ?? 0;
         if (expected !== actual) throw new StoreError(409, 'Revision conflict. Get the current board before retrying.', actual);
         if (!previous && boards.size >= MAX_BOARDS) throw new StoreError(507, 'Board limit reached');
         if (actual >= Number.MAX_SAFE_INTEGER - 1) throw new StoreError(507, 'Revision limit reached');
-        const board: Board = { id, revision: RevisionSchema.parse(actual + 1), content };
-        atomicWrite(join(boardsDir, `${id}.json`), JSON.stringify(board));
+        const board = BoardSchema.parse({ id, revision: actual + 1, content });
+        const serialized = JSON.stringify(board);
+        if (Buffer.byteLength(serialized, 'utf8') > MAX_BODY_BYTES + 1024) {
+          throw new StoreError(413, 'Serialized board exceeds the storage size limit');
+        }
+        atomicWrite(join(boardsDir, `${id}.json`), serialized);
         boards.set(id, board);
         return board;
       },

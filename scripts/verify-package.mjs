@@ -29,9 +29,10 @@ const env = {
   ...(process.env.PLAYWRIGHT_BROWSERS_PATH ? { PLAYWRIGHT_BROWSERS_PATH: process.env.PLAYWRIGHT_BROWSERS_PATH } : {}),
 };
 const runtimeFiles = [
-  'dist/main.js', 'dist/cli.js', 'dist/pi-extension.js', 'dist/public/index.html',
+  'dist/main.js', 'dist/cli.js', 'dist/pi-extension.js', 'dist/dsh-extension.js', 'dist/public/index.html',
   'dist/public/favicon.svg', 'dist/public/assets/web.js', 'dist/public/assets/audio.js', 'dist/public/assets/style.css',
 ];
+const dshResources = ['cordis.patch.yml', 'locale/en.json', 'locale/zh.json', 'icon.svg'];
 const documents = ['README.md', 'README.zh-CN.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md'];
 let stage = 'setup';
 let pi;
@@ -56,10 +57,10 @@ async function bounded(promise, timeout = 10_000) {
   finally { clearTimeout(timer); }
 }
 function validateFiles(paths) {
-  const allowed = new Set(['package.json', ...runtimeFiles, ...documents]);
+  const allowed = new Set(['package.json', ...runtimeFiles, ...dshResources, ...documents]);
   assert.equal(new Set(paths).size, paths.length, 'No duplicate tar entries');
   assert(paths.every(path => allowed.has(path) || /^docs\/[a-z][a-z-]*\.md$/.test(path) || /^examples\/[a-z][a-z-]*\.json$/.test(path)), 'Only release files may be packed');
-  for (const required of [...allowed, 'docs/publishing.md', 'examples/major.json', 'examples/comparison.json', 'examples/cadence.json']) {
+  for (const required of [...allowed, 'docs/publishing.md', 'docs/dsh.md', 'examples/major.json', 'examples/comparison.json', 'examples/cadence.json']) {
     assert(paths.includes(required), `Missing packed file ${required}`);
   }
 }
@@ -155,14 +156,36 @@ try {
   validateFiles(paths);
   assert.deepEqual(paths.slice().sort(), pack.files.map(file => file.path).sort(), 'Actual tar matches npm file report');
   assert.throws(() => validateFiles([...paths, '.data/capability']), 'Validator rejects private-state leaks');
-  assert.throws(() => validateFiles(paths.filter(path => path !== 'dist/pi-extension.js')), 'Validator rejects missing entrypoint');
+  assert.throws(() => validateFiles(paths.filter(path => path !== 'dist/pi-extension.js')), 'Validator rejects missing Pi entrypoint');
+  for (const required of ['dist/dsh-extension.js', ...dshResources, 'docs/dsh.md']) {
+    assert.throws(() => validateFiles(paths.filter(path => path !== required)), `Validator rejects missing DSH file ${required}`);
+  }
   const manifest = JSON.parse((await run('tar', ['-xOf', artifact, 'package/package.json'])).stdout);
   assert.equal(manifest.name, '@kyn0v/pi-tele'); assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.repository.url, 'https://github.com/kyn0v/Tele.git');
-  assert.equal(manifest.engines.node, '>=22.19.0'); assert.equal(manifest.type, 'module');
+  assert.equal(manifest.engines.node, '>=22.19.0'); assert.equal(manifest.engines.dsh, '0.2.2-rc.1');
+  assert.equal(manifest.type, 'module');
   assert.equal(manifest.private, undefined); assert.equal(manifest.bin, undefined);
-  assert.deepEqual(manifest.files, ['dist/main.js', 'dist/cli.js', 'dist/pi-extension.js', 'dist/public/', ...documents, 'docs/', 'examples/*.json']);
+  assert.deepEqual(manifest.files, [
+    'dist/main.js', 'dist/cli.js', 'dist/pi-extension.js', 'dist/dsh-extension.js', 'dist/public/',
+    'cordis.patch.yml', 'locale/*.json', 'icon.svg', ...documents, 'docs/', 'examples/*.json',
+  ]);
   assert.deepEqual(manifest.pi, { extensions: ['./dist/pi-extension.js'] });
+  assert.deepEqual(manifest.dsh, { bundle: { patch: './cordis.patch.yml' } });
+  assert.deepEqual(manifest.exports, {
+    '.': './dist/dsh-extension.js', './dsh': './dist/dsh-extension.js', './pi': './dist/pi-extension.js',
+    './package.json': './package.json', './locale/*.json': './locale/*.json', './icon': './icon.svg',
+  });
+  const patch = (await run('tar', ['-xOf', artifact, 'package/cordis.patch.yml'])).stdout;
+  assert.equal(patch.replace(/\r\n/g, '\n').trim(), "- insert:\n    - id: tele-board\n      name: '@kyn0v/pi-tele'\n      config: {}", 'Packed patch registers the DSH host entrypoint');
+  for (const locale of ['en', 'zh']) {
+    const metadata = JSON.parse((await run('tar', ['-xOf', artifact, `package/locale/${locale}.json`])).stdout);
+    assert.equal(typeof metadata.meta?.title, 'string'); assert(metadata.meta.title.trim(), 'DSH title is nonempty');
+    assert.equal(typeof metadata.meta?.description, 'string'); assert(metadata.meta.description.trim(), 'DSH description is nonempty');
+  }
+  const icon = (await run('tar', ['-xOf', artifact, 'package/icon.svg'])).stdout;
+  assert(Buffer.byteLength(icon, 'utf8') <= 256 * 1024, 'DSH icon stays within the metadata size limit');
+  assert(/^\s*<svg\b/.test(icon) && /xmlns="http:\/\/www\.w3\.org\/2000\/svg"/.test(icon) && /<\/svg>\s*$/.test(icon), 'Packed icon is an SVG document; rendering is verified separately');
   assert.deepEqual(manifest.publishConfig, { access: 'public' });
   assert.deepEqual(manifest.keywords, ['pi-package', 'music', 'guitar']);
   assert.deepEqual(manifest.peerDependencies, { '@earendil-works/pi-coding-agent': '*', typebox: '*' });
@@ -174,6 +197,41 @@ try {
   stage = 'production consumer install without scripts or host peers';
   await install();
   check('physical production install contains only Tele and real Zod, no host peers or dev dependencies');
+  stage = 'production DSH entrypoint without host peers';
+  // Portability smoke test with a structural context, not a real DSH registry.
+  // Real-host registration and tool pipeline acceptance are checked separately.
+  await run(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import { stat } from 'node:fs/promises';
+    import { join } from 'node:path';
+    import { apply, inject, Config, PUBLIC_FILES } from '@kyn0v/pi-tele';
+    assert.deepEqual(inject, ['tools']);
+    assert.equal(Config.parse({}).port, 0);
+    let tool, dispose;
+    const dataDir = join(process.cwd(), 'dsh-boards');
+    const ctx = {
+      effect: async setup => { dispose = await setup(); return dispose; },
+      tools: { register: value => { tool = value; return () => { tool = undefined; }; } },
+    };
+    try {
+      await apply(ctx, { dataDir, port: 0 });
+      const result = await tool.execute({ action: 'put', boardId: 'dsh-package', expectedRevision: 0,
+        content: { title: 'Packed DSH board', groups: [{ id: 'major', title: 'Major IV', chords: ['D', 'G', 'D'] }] }
+      }, { signal: new AbortController().signal });
+      assert.equal(result.revision, 1);
+      const origin = new URL(result.url).origin;
+      assert.deepEqual(await (await fetch(origin + '/api/capabilities')).json(), { chat: false, chatPanel: false });
+      for (const file of PUBLIC_FILES) {
+        const response = await fetch(file === 'index.html' ? result.url : origin + '/' + file);
+        assert.equal(response.status, 200);
+        assert((await response.arrayBuffer()).byteLength > 0);
+      }
+      assert.equal((await fetch(origin + '/api/chat')).status, 404);
+    } finally { await dispose?.(); }
+    assert.equal(tool, undefined);
+    await assert.rejects(stat(join(dataDir, 'server.lock')), { code: 'ENOENT' });
+  `]);
+  check('packed DSH root entry imports with production Zod only; structural smoke serves assets, keeps chat disabled, and releases its lock');
   stage = 'real Pi local registration';
   await run(process.execPath, [hostCli, 'install', installed]);
   stage = 'isolated Pi package declaration';
@@ -259,7 +317,7 @@ try {
   check('relative TELE_DATA, relative --tele-data precedence and --tele-port 0 overriding TELE_PORT');
   assert.equal(report.modelRuns, 0, 'Slash commands cause no model runs');
   report.ok = true;
-  report.limitation = 'Tests npm tarball installation and real Pi local registration, not the Pi npm downloader or registry ownership.';
+  report.limitation = 'Tests npm tarball installation, DSH packed-file/manifest/metadata contracts, and real Pi local registration, not real DSH activation or rendering, the Pi npm downloader, or registry ownership. Real DSH acceptance must be executed and recorded separately on the actual host.';
 } catch (error) {
   report.ok = false;
   report.failedStage = stage;
