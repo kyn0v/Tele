@@ -2,7 +2,9 @@
 
 Tele uses the npm package name `@kyn0v/pi-tele` and is listed in the [Pi package gallery](https://pi.dev/packages/@kyn0v/pi-tele). Version 0.2.0 adds DSH support while keeping Pi support. This guide covers candidate verification and GitHub Actions releases.
 
-Treat v0.2.0 as a release candidate until its release checks pass and registry publication is confirmed. Public release authorization does not mean that publication or the release CI has completed. Confirm the exact version's registry integrity after publishing. npm publication does not automatically list Tele in the DSH official market.
+Treat v0.2.1 as a release candidate until its release checks pass and registry publication is confirmed. Public release authorization does not mean that publication or the release CI has completed. Confirm the exact version's registry integrity after publishing. npm publication does not automatically list Tele in the DSH official market.
+
+Published v0.2.0 declares only DSH `0.2.2-rc.1`, so `0.2.2-rc.3` rejects it. Published npm bytes cannot be replaced. The v0.2.1 candidate changes `engines.dsh` to `0.2.2-rc.1 || 0.2.2-rc.3`; it does not include rc.2, other release candidates, or a stable release. Verify each declared target separately. Until the new version is available, users can build and install the reviewed local source instead. Keep existing board data; this fix does not require a compatibility exemption.
 
 Version 0.1.0 was published manually and has no OIDC provenance claim. Its packed README contains outdated installation text. Published package bytes cannot be replaced; documentation fixes require a new version.
 
@@ -35,7 +37,9 @@ The development Pi host registers the installed directory in a disposable offlin
 
 ## Verify the DSH candidate on a real host
 
-Use DSH `0.2.2-rc.1`. Install the reviewed local source directory through the Plugin Manager, then follow the [DSH acceptance checklist](dsh.md#verification-status-and-checklist). Record activation, catalogue and board calls, revision conflicts, SSE updates, stop cleanup, and persistence after reactivation. Check that other DSH tools remain available.
+Verify DSH `0.2.2-rc.1` and `0.2.2-rc.3` separately. Install the reviewed local source directory through the Plugin Manager, then follow the [DSH acceptance checklist](dsh.md#verification-status-and-checklist). If Tele is already installed, use the manager's Update action when offered, or its remove-and-install flow. Preserve `~/.tele/dsh`, its saved boards, and its local write credentials. Record activation, catalogue and board calls, revision conflicts, SSE updates, stop cleanup, and persistence after reactivation. Check that other DSH tools remain available. An earlier rc.1 result does not prove rc.3 acceptance.
+
+Run `npm run verify:dsh:runtime` with the installed target's `DSH_INSTALL_DIR` and `DSH_NODE_EXECUTABLE` environment facts. This check uses actual Cordis, the tool registry, and the native executor without model calls or stubs; missing facts are an error, not a pass. Record the runtime actually exercised, and do not treat rc.1 admission checked from rc.3 as an rc.1 runtime test.
 
 Use the URL returned by a real `tele_board` call for `npm run verify:dsh:live -- <url>`. That read-only browser test does not create or update boards or prove the DSH tool pipeline. It also does not verify the Plugin Manager's displayed title, description, or icon. Check those in the actual GUI. Keep unavailable GUI checks and subjective listening separate from passed checks.
 
@@ -66,7 +70,7 @@ For future public OIDC publications from this public repository, npm automatical
 3. Review the read-only verification job. Preflight reads the event as JSON using trusted main code, resolves the tag to an immutable commit, and checks its ancestry before any tagged code runs. Verification checks out that SHA and runs the same `verify:ci` gate as pull requests and main pushes. Only a successful gate uploads its checked artifact.
 4. Approve the `npm` environment deployment after reviewing the release and artifact. Only the dependent publish job has `id-token: write`. It downloads the artifact from that same workflow run and runs a builtins-only helper from the verified SHA. It performs no `npm ci`, project dependency install, build, pack, or package lifecycle hook.
 5. Confirm the job's registry integrity result. It checks metadata, release version and commit, SHA-512 bytes, and the tar manifest before using `npm publish <tarball> --access public --ignore-scripts --registry=https://registry.npmjs.org/`. Only a parsed HTTP 404 from the exact version endpoint allows a new publish. Auth, transport, malformed responses, and server failures do not count as absence.
-6. In DSH `0.2.2-rc.1`, install `@kyn0v/pi-tele@<version>` through the Plugin Manager. The agent equivalent is `plugin_manager` with `action: install_bundle` and the same spec as `target`. Check actual activation and board operations. The published package includes built files and needs no source build or installation scripts.
+6. On each declared DSH target, `0.2.2-rc.1` and `0.2.2-rc.3`, install `@kyn0v/pi-tele@<version>` through the Plugin Manager. The agent equivalent for a new installation is `plugin_manager` with `action: install_bundle` and the same spec as `target`. For an installed bundle, follow the manager's update or remove-and-install outcome without clearing its data directory. Check actual activation and board operations. The published package includes built files and needs no source build or installation scripts.
 7. In a disposable Pi profile, install `pi install npm:@kyn0v/pi-tele@<version>`, reload Pi, and run `/tele harmony`. Check the browser, CLI, persisted boards, and gallery version independently of packed-consumer acceptance.
 8. Treat any DSH official-market listing as a separate publication step. npm availability alone does not prove that listing exists.
 

@@ -1,6 +1,6 @@
 {
   "name": "@kyn0v/pi-tele",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Interactive guitar chord boards for DSH and Pi, with an optional Pi conversation panel",
   "license": "MIT",
   "repository": {
@@ -52,7 +52,7 @@
   "type": "module",
   "engines": {
     "node": ">=22.19.0",
-    "dsh": "0.2.2-rc.1"
+    "dsh": "0.2.2-rc.1 || 0.2.2-rc.3"
   },
   "scripts": {
     "build": "tsc --noEmit && node scripts/build.mjs",
@@ -67,6 +67,7 @@
     "verify:package": "node scripts/verify-package.mjs",
     "verify:dsh": "npm run build && tsx --test test/dsh.test.ts",
     "verify:dsh:live": "node scripts/verify-dsh-live.mjs",
+    "verify:dsh:runtime": "node scripts/verify-dsh-runtime.mjs",
     "verify:ci": "node scripts/verify-ci.mjs"
   },
   "dependencies": {
