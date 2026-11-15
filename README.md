@@ -6,15 +6,19 @@ Interactive music tools for AI agents.
 
 Tele v0.2.0 adds a DSH plugin for playable guitar chord boards and keeps Pi's board and private conversation support. Ask the agent to change a chord progression, then click the chords to hear it. The DSH plugin does not provide private chat, music mode, or an embedded DSH panel.
 
-The npm instructions below target v0.2.0. Confirm that this version is available in the registry before installing.
+The npm instructions below target v0.2.1. Confirm that this version is available in the registry before installing.
 
 English | [简体中文](README.zh-CN.md)
 
 ## Install the DSH board plugin
 
-Tele v0.2.0 supports exactly DSH `0.2.2-rc.1`. It does not claim compatibility with other DSH versions.
+Tele v0.2.1 declares compatibility with DSH `0.2.2-rc.1` and `0.2.2-rc.3` only. Its `engines.dsh` range is `0.2.2-rc.1 || 0.2.2-rc.3`; other release candidates and stable releases are not covered. A compatibility declaration does not replace runtime verification.
 
-In DSH's **Plugin Manager**, install the npm package spec `@kyn0v/pi-tele@0.2.0`. You can also ask your DSH agent to call `plugin_manager` with `action: install_bundle` and `target: @kyn0v/pi-tele@0.2.0`. The npm package includes built server and browser files. You do not need a source checkout, a build, or installation scripts. Inspect the returned activation outcome. A failed or restart-required result does not mean the plugin is running.
+Published Tele v0.2.0 declares only `0.2.2-rc.1`, so DSH `0.2.2-rc.3` rejects that version. Published npm versions cannot be changed. Use v0.2.1 once it is available in the registry, or build and install the updated local source below. Keep your existing data directory; this fix does not require deleting boards or granting a compatibility exemption.
+
+In DSH's **Plugin Manager**, install the npm package spec `@kyn0v/pi-tele@0.2.1`. You can also ask your DSH agent to call `plugin_manager` with `action: install_bundle` and `target: @kyn0v/pi-tele@0.2.1`. The npm package includes built server and browser files. You do not need a source checkout, a build, or installation scripts. Inspect the returned activation outcome. A failed or restart-required result does not mean the plugin is running.
+
+If Tele is already installed, use **Update** when the Plugin Manager offers it. Otherwise follow the manager's remove-and-install flow for the new version. Keep `~/.tele/dsh` and inspect the returned activation outcome rather than treating installation as proof that the plugin is running.
 
 ### Develop from local source
 

@@ -163,7 +163,7 @@ try {
   const manifest = JSON.parse((await run('tar', ['-xOf', artifact, 'package/package.json'])).stdout);
   assert.equal(manifest.name, '@kyn0v/pi-tele'); assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.repository.url, 'https://github.com/kyn0v/Tele.git');
-  assert.equal(manifest.engines.node, '>=22.19.0'); assert.equal(manifest.engines.dsh, '0.2.2-rc.1');
+  assert.equal(manifest.engines.node, '>=22.19.0'); assert.equal(manifest.engines.dsh, '0.2.2-rc.1 || 0.2.2-rc.3');
   assert.equal(manifest.type, 'module');
   assert.equal(manifest.private, undefined); assert.equal(manifest.bin, undefined);
   assert.deepEqual(manifest.files, [

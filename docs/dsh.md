@@ -2,19 +2,27 @@
 
 ## Scope and compatibility / 范围与兼容性
 
-Tele v0.2.0 includes a DSH Host plugin exposing `tele_board` and keeps Pi support. It targets exactly DSH `0.2.2-rc.1`. It does not claim compatibility with other runtime versions. The npm instructions target v0.2.0. Confirm registry availability before installing.
+Tele v0.2.0 introduced the DSH Host plugin exposing `tele_board` and kept Pi support. The v0.2.1 compatibility update declares only DSH `0.2.2-rc.1` and `0.2.2-rc.3`, through `engines.dsh: "0.2.2-rc.1 || 0.2.2-rc.3"`. Other release candidates and stable releases are not covered. The npm instructions target v0.2.1. Confirm registry availability before installing.
 
-Tele v0.2.0 提供 DSH 宿主白板工具，并保留 Pi 支持。DSH 插件不提供私有对话、音乐模式或内嵌 UI。它不读取 DSH 历史、不发送或停止 DSH 对话、不修改其他工具的可用性，也不自动打开浏览器。现有 Pi `/tele` 命令和配对对话只适用于 Pi。
+Published v0.2.0 declares only `0.2.2-rc.1` and is rejected on `0.2.2-rc.3`. Its npm package cannot be changed. Use v0.2.1 after it becomes available, or build and install the updated local source. The compatibility declaration is not a runtime acceptance result; record verification separately for each target.
+
+Tele v0.2.0 引入 DSH 宿主白板工具，并保留 Pi 支持。v0.2.1 的兼容修复只声明支持 `0.2.2-rc.1` 和 `0.2.2-rc.3`，不包含 rc.2 或其他版本。在注册表确认 v0.2.1 可用后再用 npm 安装；已发布的 v0.2.0 不能被覆盖修正。兼容声明与各目标的实际验收结果分开记录。
+
+DSH 插件不提供私有对话、音乐模式或内嵌 UI。它不读取 DSH 历史、不发送或停止 DSH 对话、不修改其他工具的可用性，也不自动打开浏览器。现有 Pi `/tele` 命令和配对对话只适用于 Pi。
 
 This document describes the implementation and intended operation, not a deployment-specific acceptance report. Users should execute and record real-host verification separately; existing Pi and package checks do not replace that evidence.
 
 ## Install the npm package / 安装 npm 包
 
-In DSH's **Plugin Manager**, install `@kyn0v/pi-tele@0.2.0`. Alternatively, ask your DSH agent to call `plugin_manager` with `action: install_bundle` and `target: @kyn0v/pi-tele@0.2.0`. The package includes built server and browser files. No source checkout, build, or installation scripts are required.
+In DSH's **Plugin Manager**, install `@kyn0v/pi-tele@0.2.1`. Alternatively, ask your DSH agent to call `plugin_manager` with `action: install_bundle` and `target: @kyn0v/pi-tele@0.2.1`. The package includes built server and browser files. No source checkout, build, or installation scripts are required.
 
-在 DSH 插件管理器中安装 npm 包 `@kyn0v/pi-tele@0.2.0`，或让 agent 使用同一个 spec 调用 `install_bundle`。包中已包含构建产物，不需要启用安装脚本。检查返回的激活结果。`failed` 或 `restart-required` 不代表插件已经运行。
+在 DSH 插件管理器中安装 npm 包 `@kyn0v/pi-tele@0.2.1`，或让 agent 使用同一个 spec 调用 `install_bundle`。包中已包含构建产物，不需要启用安装脚本。检查返回的激活结果。`failed` 或 `restart-required` 不代表插件已经运行。
 
 npm publication makes the package installable by spec. It does not automatically list Tele in the DSH official market.
+
+If Tele is already installed, use **Update** when offered, or follow the Plugin Manager's remove-and-install flow. Keep the existing `~/.tele/dsh` directory, saved boards, and local write credentials. This compatibility fix does not require a version exemption or clearing data.
+
+已安装同名包时，使用插件管理器提供的更新入口，或按其移除后重新安装流程切换版本。保留 `~/.tele/dsh` 中的白板与本机写入凭据，不需要申请兼容豁免，也不要为解决版本拒绝而清空数据。
 
 ## Develop from local source / 从本地源码开发
 
@@ -30,7 +38,7 @@ Then install `/absolute/path/Tele` through the Plugin Manager, or give that abso
 
 使用插件管理器管理启用、停用和移除；不要通过 shell 改写用户 profile 配置。不要为本插件启用未知安装脚本，也不要绕过版本检查。插件依赖已安装的 DSH tools 服务，通过 bundle patch 注册宿主入口。它不是 MCP 服务器。
 
-The package root and `./dsh` export the DSH entrypoint; `./pi` and `pi.extensions` retain the Pi entrypoint. The [manifest](../package.json) declares the bundle patch, exact runtime engine, locales, and icon. No separate DSH account or cloud service is used.
+The package root and `./dsh` export the DSH entrypoint; `./pi` and `pi.extensions` retain the Pi entrypoint. The [manifest](../package.json) declares the bundle patch, explicit runtime engine range, locales, and icon. No separate DSH account or cloud service is used.
 
 ## Configuration / 配置
 
@@ -114,18 +122,21 @@ This is an implementation reference and a reusable acceptance checklist, not a d
 
 `verify:package` 要求压缩包包含 DSH 入口、patch、英中文元数据、图标及清单声明。它用结构化测试 context 仅通过生产依赖加载已打包 DSH 入口，检查网页资源和清理行为，并保留真实 Pi 安装、配对、CLI、重装与持久化检查。这项可移植性检查不运行真实 DSH 工具注册表，也不证明其他 DSH 版本兼容。不要把打包成功报告为真实 DSH 验收通过。
 
-Two focused checks are available:
+The following focused checks are available:
 
 ```sh
 npm run verify:dsh
+npm run verify:dsh:runtime
 npm run verify:dsh:live -- http://127.0.0.1:PORT/b/board
 ```
 
 Replace `PORT` and `board` with an existing live result URL. `verify:dsh` builds and runs independent fixture tests; it does not install or activate a real DSH plugin. `verify:dsh:live` performs read-only browser checks against the supplied live board URL. It does not create or update boards, validate the real DSH tool pipeline, or verify the Plugin Manager's GUI metadata or rendered icon. A screenshot of the standalone board is not evidence of those DSH GUI checks.
 
-`verify:dsh` 是构建与独立 fixture 检查，`verify:dsh:live` 是给定真实白板 URL 的只读浏览器验证；两者不能代替真实 DSH 工具调用链和插件管理器 GUI 元数据的单独验收。
+`verify:dsh:runtime` uses the real Cordis, system-prompt service, tool registry, and native executor from the installed DSH identified by `DSH_INSTALL_DIR` and `DSH_NODE_EXECUTABLE`. It makes no model calls and uses no stubs. Missing installation facts produce an explicit error, not a successful skip. Its result applies to the runtime actually exercised; checking rc.1 admission from an rc.3 installation is not an rc.1 runtime test.
 
-Real-host acceptance should record, on DSH `0.2.2-rc.1`:
+`verify:dsh` 是构建与独立 fixture 检查；`verify:dsh:runtime` 通过安装环境事实加载真实 DSH 运行时，不调用模型或使用 stub；`verify:dsh:live` 对已有白板 URL 做只读浏览器检查。缺少安装环境时，运行时检查明确报错。各检查不能替代插件管理器 GUI 元数据和主观听感验收，也不能把一个运行时的结果当作另一个版本的实测。
+
+Run and record real-host acceptance separately on DSH `0.2.2-rc.1` and `0.2.2-rc.3`. Earlier rc.1 acceptance does not establish rc.3 compatibility. For each target, check:
 
 1. Local installation and activation outcome, correct English/Chinese metadata and rendered icon, and availability of exactly the intended `tele_board` registration.
 2. Catalogue, absent `get`, create, reread, replace, and stale-revision conflict with no unintended mutation; malformed inputs are rejected.
